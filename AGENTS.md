@@ -11,7 +11,7 @@ Single-user, AI-powered learning app. Stack: Next.js App Router + TypeScript, sh
 
 User: { email: String required unique, passwordHash: String required, createdAt: Date default now }
 
-Skill: { name: String required, description: String, status: enum [active, archived] default active, source: enum [user-added, ai-suggested] default user-added, createdAt: Date default now }
+Skill: { userId: ObjectId ref User required, name: String required, description: String, status: enum [active, archived] default active, source: enum [user-added, ai-suggested] default user-added, createdAt: Date default now }
 
 Topic: { skillId: ObjectId ref Skill required, title: String required, order: Number required, status: enum [pending, generating, ready] default pending, createdAt: Date default now }
 

@@ -17,7 +17,7 @@ export type { SolutionAnalysisResponse } from "@/lib/challenges/types";
 type RouteContext = { params: Promise<{ challengeId: string }> };
 
 export async function GET(_request: Request, context: RouteContext) {
-  const { error } = await requireSession();
+  const { session, error } = await requireSession();
   if (error) return error;
 
   const { challengeId } = await context.params;
@@ -31,6 +31,11 @@ export async function GET(_request: Request, context: RouteContext) {
   const challenge = await CodingChallenge.findById(id).lean().exec();
   if (!challenge) {
     return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
+  }
+
+  const skill = await Skill.findOne({ _id: challenge.skillId, userId: session!.user.id }).lean().exec();
+  if (!skill) {
+    return NextResponse.json({ error: "Skill not found or unauthorized" }, { status: 404 });
   }
 
   const passing = await Submission.findOne({
@@ -50,8 +55,6 @@ export async function GET(_request: Request, context: RouteContext) {
     };
     return NextResponse.json(body, { status: 403 });
   }
-
-  const skill = await Skill.findById(challenge.skillId).lean().exec();
   const skillId = challenge.skillId.toString();
 
   const cached = await SolutionAnalysis.findOne({ challengeId: id }).lean().exec();

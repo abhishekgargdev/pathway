@@ -125,12 +125,22 @@ export async function GET() {
 
   await withDb();
 
-  const progressRows = await Progress.find({
-    lastVisitedAt: { $exists: true, $ne: null },
-  })
-    .select("lastVisitedAt status subtopicId skillId topicId")
+  const activeSkills = await Skill.find({ userId: session!.user.id, status: "active" })
+    .sort({ createdAt: -1 })
     .lean()
     .exec();
+
+  const userSkillIds = activeSkills.map((s) => s._id);
+
+  const progressRows = userSkillIds.length > 0
+    ? await Progress.find({
+        skillId: { $in: userSkillIds },
+        lastVisitedAt: { $exists: true, $ne: null },
+      })
+        .select("lastVisitedAt status subtopicId skillId topicId")
+        .lean()
+        .exec()
+    : [];
 
   const activityDays = new Set<string>();
   for (const row of progressRows) {
@@ -142,13 +152,16 @@ export async function GET() {
   const streakDays = computeStreak(activityDays);
   const last7Days = last7DayFlags(activityDays);
 
-  const continueProgress = await Progress.findOne({
-    status: "in-progress",
-    subtopicId: { $exists: true, $ne: null },
-  })
-    .sort({ lastVisitedAt: -1 })
-    .lean()
-    .exec();
+  const continueProgress = userSkillIds.length > 0
+    ? await Progress.findOne({
+        skillId: { $in: userSkillIds },
+        status: "in-progress",
+        subtopicId: { $exists: true, $ne: null },
+      })
+        .sort({ lastVisitedAt: -1 })
+        .lean()
+        .exec()
+    : null;
 
   let continueTarget: DashboardContinueTarget | null = null;
 
@@ -160,8 +173,8 @@ export async function GET() {
       ? await Topic.findById(subtopic.topicId).lean().exec()
       : null;
     const skill = topic
-      ? await Skill.findById(topic.skillId).lean().exec()
-      : await Skill.findById(continueProgress.skillId).lean().exec();
+      ? await Skill.findOne({ _id: topic.skillId, userId: session!.user.id }).lean().exec()
+      : await Skill.findOne({ _id: continueProgress.skillId, userId: session!.user.id }).lean().exec();
 
     if (subtopic && topic && skill) {
       const stats = await skillSubtopicStats(skill._id);
@@ -180,25 +193,22 @@ export async function GET() {
   }
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const recentDone = await GenerationQueue.find({
-    status: "done",
-    completedAt: { $gte: since },
-    skillId: { $exists: true, $ne: null },
-  })
-    .select("skillId")
-    .lean()
-    .exec();
+  const recentDone = userSkillIds.length > 0
+    ? await GenerationQueue.find({
+        skillId: { $in: userSkillIds },
+        status: "done",
+        completedAt: { $gte: since },
+      })
+        .select("skillId")
+        .lean()
+        .exec()
+    : [];
 
   const newSkillIds = new Set(
     recentDone
       .map((row) => row.skillId?.toString())
       .filter((id): id is string => Boolean(id)),
   );
-
-  const activeSkills = await Skill.find({ status: "active" })
-    .sort({ createdAt: -1 })
-    .lean()
-    .exec();
 
   const skills: DashboardSkill[] = [];
   for (const skill of activeSkills) {

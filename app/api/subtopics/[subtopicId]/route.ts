@@ -19,7 +19,7 @@ export type { SubtopicContentResponse } from "@/lib/subtopics/types";
 type RouteContext = { params: Promise<{ subtopicId: string }> };
 
 export async function GET(_request: Request, context: RouteContext) {
-  const { error } = await requireSession();
+  const { session, error } = await requireSession();
   if (error) return error;
 
   const { subtopicId } = await context.params;
@@ -40,7 +40,7 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Topic not found" }, { status: 404 });
   }
 
-  const skill = await Skill.findById(topic.skillId).lean().exec();
+  const skill = await Skill.findOne({ _id: topic.skillId, userId: session!.user.id }).lean().exec();
   if (!skill) {
     return NextResponse.json({ error: "Skill not found" }, { status: 404 });
   }

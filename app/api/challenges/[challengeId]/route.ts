@@ -18,7 +18,7 @@ export type { ChallengeGetResponse } from "@/lib/challenges/types";
 type RouteContext = { params: Promise<{ challengeId: string }> };
 
 export async function GET(_request: Request, context: RouteContext) {
-  const { error } = await requireSession();
+  const { session, error } = await requireSession();
   if (error) return error;
 
   const { challengeId } = await context.params;
@@ -32,6 +32,11 @@ export async function GET(_request: Request, context: RouteContext) {
   let challenge = await CodingChallenge.findById(id).lean().exec();
   if (!challenge) {
     return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
+  }
+
+  const skill = await Skill.findOne({ _id: challenge.skillId, userId: session!.user.id }).lean().exec();
+  if (!skill) {
+    return NextResponse.json({ error: "Challenge not found or unauthorized" }, { status: 404 });
   }
 
   let responseStatus: ChallengeGetResponse["status"] = "ready";
@@ -61,8 +66,6 @@ export async function GET(_request: Request, context: RouteContext) {
           : "generating";
     }
   }
-
-  const skill = await Skill.findById(challenge.skillId).lean().exec();
   let topicTitle: string | null = null;
   if (challenge.topicId) {
     const topic = await Topic.findById(challenge.topicId).lean().exec();

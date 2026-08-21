@@ -35,7 +35,7 @@ function resolveNodeState(params: {
 }
 
 export async function GET(_request: Request, context: RouteContext) {
-  const { error } = await requireSession();
+  const { session, error } = await requireSession();
   if (error) return error;
 
   const { skillId } = await context.params;
@@ -45,7 +45,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
   await withDb();
 
-  const skill = await Skill.findById(skillId).lean().exec();
+  const skill = await Skill.findOne({ _id: skillId, userId: session!.user.id }).lean().exec();
   if (!skill) {
     return NextResponse.json({ error: "Skill not found" }, { status: 404 });
   }
@@ -124,8 +124,6 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const path: SkillTreeResponse["path"] = orderedFlat.map((item, index) => {
     const nodeState = flatStates[index]!;
-    const progressStatus =
-      progressBySubtopic.get(item.subtopic._id.toString()) ?? null;
 
     return {
       id: item.subtopic._id.toString(),

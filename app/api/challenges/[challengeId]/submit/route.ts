@@ -13,6 +13,7 @@ import {
 } from "@/lib/piston/client";
 import { CodingChallenge } from "@/models/CodingChallenge";
 import { Submission } from "@/models/Submission";
+import { Skill } from "@/models/Skill";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -29,7 +30,7 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request, context: RouteContext) {
-  const { error } = await requireSession();
+  const { session, error } = await requireSession();
   if (error) return error;
 
   const { challengeId } = await context.params;
@@ -58,6 +59,11 @@ export async function POST(request: Request, context: RouteContext) {
   const challenge = await CodingChallenge.findById(id).lean().exec();
   if (!challenge) {
     return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
+  }
+
+  const skill = await Skill.findOne({ _id: challenge.skillId, userId: session!.user.id }).lean().exec();
+  if (!skill) {
+    return NextResponse.json({ error: "Challenge not found or unauthorized" }, { status: 404 });
   }
 
   if (challenge.status !== "ready" || !(challenge.testCases?.length)) {
