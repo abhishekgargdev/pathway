@@ -40,6 +40,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const passing = await Submission.findOne({
     challengeId: id,
+    userId: session!.user.id,
     allPassed: true,
   })
     .sort({ submittedAt: -1 })

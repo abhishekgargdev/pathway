@@ -72,13 +72,14 @@ export async function GET(_request: Request, context: RouteContext) {
     topicTitle = topic?.title ?? null;
   }
 
-  const latest = await Submission.findOne({ challengeId: id })
+  const latest = await Submission.findOne({ challengeId: id, userId: session!.user.id })
     .sort({ submittedAt: -1 })
     .lean()
     .exec();
 
   const passing = await Submission.findOne({
     challengeId: id,
+    userId: session!.user.id,
     allPassed: true,
   })
     .lean()
@@ -89,7 +90,7 @@ export async function GET(_request: Request, context: RouteContext) {
     .lean()
     .exec();
 
-  const submissions = await Submission.find({ challengeId: id })
+  const submissions = await Submission.find({ challengeId: id, userId: session!.user.id })
     .sort({ submittedAt: -1 })
     .limit(10)
     .lean()
