@@ -150,6 +150,13 @@ pathway/
     gemini/schemas.ts                 — Zod schemas per AI response shape
     gemini/prompts.ts                 — prompt templates
     piston/client.ts
+    code-runner/                      — provider-based browser sandbox runner
+      types.ts
+      languages.ts
+      compare.ts
+      templates.ts
+      provider.ts
+      index.ts
     queue/enqueue.ts, queue/process.ts — shared queue helpers used by cron + lazy path
   scripts/seed.ts
   figma/                              — your Figma Make export, extraction source
