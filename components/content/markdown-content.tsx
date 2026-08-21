@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 
 import { cn } from "@/lib/utils";
+import { CodeBlock } from "./CodeBlock";
 
 const components: Components = {
   h1: ({ children }) => (
@@ -51,27 +52,21 @@ const components: Components = {
   ),
   code: ({ className, children, ...props }) => {
     const isBlock = Boolean(className?.includes("language-"));
-    if (!isBlock) {
-      return (
-        <code
-          className="rounded px-1.5 py-0.5 font-mono text-[13px] text-[#5EEAD4] bg-[#5EEAD4]/10"
-          {...props}
-        >
-          {children}
-        </code>
-      );
+    const language = className?.replace("language-", "") ?? "code";
+    const codeContent = String(children).replace(/\n$/, "");
+    if (isBlock) {
+      return <CodeBlock code={codeContent} language={language} />;
     }
     return (
-      <code className={cn("font-mono text-[12px] leading-relaxed text-[#EDEFF7]", className)} {...props}>
+      <code
+        className="rounded px-1.5 py-0.5 font-mono text-[13px] text-[#5EEAD4] bg-[#5EEAD4]/10"
+        {...props}
+      >
         {children}
       </code>
     );
   },
-  pre: ({ children }) => (
-    <pre className="mb-4 overflow-x-auto rounded-xl border border-[#2A2F4A] bg-[#1F2440] p-4 font-mono text-[12px] leading-relaxed text-[#EDEFF7]">
-      {children}
-    </pre>
-  ),
+  pre: ({ children }) => <>{children}</>,
   table: ({ children }) => (
     <div className="mb-4 overflow-x-auto rounded-xl border border-[#2A2F4A]">
       <table className="w-full min-w-[280px] border-collapse text-left text-sm">
