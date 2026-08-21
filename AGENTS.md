@@ -73,6 +73,14 @@ Scrolling & progressive load
 - Prefer section-level scrollers (scrollable panels / sticky headers / virtualized or paginated lists) so a single page does not mount an endless wall of sections at once.
 - Long trees, queues, quiz lists, challenge history, and manage views should load/reveal incrementally (lazy sections, “load more”, or in-panel scroll) instead of dumping everything into one tall document scroll that feels heavy.
 
+Loaders & loading states
+- Every async wait must show a loader — never leave the UI blank or frozen while an API call or navigation is in flight.
+- Page loader (Next.js App Router): use `loading.tsx` (and route-level Suspense where needed) so route transitions show an immediate full-page or shell-level loading state while the next segment streams in. Match Pathway surfaces (background #0E1220 / surface cards) — no default white flash.
+- Module / section skeleton loaders: when a screen module or card block is fetching (dashboard continue-card, skill tree, subtopic content, quiz, challenge editor, manage queue, analysis), show shadcn `Skeleton` placeholders that mirror that module’s real layout (same padding, radius, approximate height) so the page structure stays stable.
+- API / action screen loader: when the user triggers a mutation or blocking request (login, create skill, submit quiz/code, regenerate, confirm delete), show an in-context pending state — button spinner + disabled controls, or a non-blocking overlay/spinner on the affected panel. Prefer local/module loaders over a full-screen block unless the whole view is unusable until the response returns.
+- Generation / quota waits: pending content and “ready in tomorrow’s batch” must use the same loader/empty language as the rest of the app (skeleton + short status copy), not a raw spinner with no context.
+- Loaders use muted/surface-raised tones and optional teal accent on the active spinner/glow; keep motion short; respect prefer-reduced-motion (static skeleton or simple opacity pulse instead of traveling glow).
+
 Motion, animation & transitions
 - Use Framer Motion for intentional motion only: page/route transitions, continue-card elevation, path node state changes, loading line/glow, modal enter/exit, success/fail feedback.
 - Keep transitions short and consistent (roughly 150–300ms); ease-out for enter, ease-in for exit. Do not animate everything; avoid motion that distracts from reading or solving.
@@ -91,13 +99,13 @@ Modals & confirmations
 Professional baseline UX
 - One clear primary action per view; secondary actions stay visually quieter.
 - Consistent spacing rhythm (12–16px gaps, outer padding as above); no overlapping layers or zero-gap collisions.
-- Empty, loading, error, and “ready tomorrow” states are first-class — never blank screens or raw error dumps.
+- Empty, loading (page / skeleton / API), error, and “ready tomorrow” states are first-class — never blank screens or raw error dumps.
 - Forms and editors: labels, validation messages near fields, disable submit while pending, preserve user input on soft failures.
 - Touch targets large enough on mobile (~44px); no tiny icon-only controls without accessible names.
 
 ## Figma export
 
-figma/ contains a Figma Make export — the visual source of truth for layout/spacing intent. For every screen, check figma/ first, extract structure/spacing intent, then re-implement properly with real shadcn components, Tailwind using the tokens above, and Framer Motion for the specified animations — adapt, don't copy-paste wholesale. Follow the UI/UX principles above on every screen (responsive, no horizontal scroll, in-box content, section scrollers, modals for destructive actions, professional interaction states).
+figma/ contains a Figma Make export — the visual source of truth for layout/spacing intent. For every screen, check figma/ first, extract structure/spacing intent, then re-implement properly with real shadcn components, Tailwind using the tokens above, and Framer Motion for the specified animations — adapt, don't copy-paste wholesale. Follow the UI/UX principles above on every screen (responsive, no horizontal scroll, in-box content, section scrollers, page/module/API loaders & skeletons, modals for destructive actions, professional interaction states).
 
 Keep this file updated if any architecture decision changes mid-build.
 
