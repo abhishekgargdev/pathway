@@ -18,8 +18,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pathway",
-  description: "AI-powered learning path",
+  title: "Pathway — AI-guided learning paths",
+  description:
+    "Pick a skill, get an AI-generated learning path, confirm understanding with quick checks, and prove it with judged coding challenges.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

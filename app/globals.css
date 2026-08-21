@@ -128,3 +128,23 @@
     @apply font-sans;
   }
 }
+
+@keyframes path-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(94, 234, 212, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(94, 234, 212, 0.85);
+  }
+}
+
+.animate-path-pulse {
+  animation: path-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-path-pulse {
+    animation: none !important;
+  }
+}
