@@ -52,7 +52,7 @@ export type SkillTreeResponse = {
     topicId: string | null;
     topicTitle: string | null;
     difficulty: "easy" | "medium" | "hard" | null;
-    status: "pending" | "generating" | "ready";
+    status: "pending" | "generating" | "ready" | "failed";
     href: string | null;
   }>;
 };

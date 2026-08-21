@@ -1,6 +1,8 @@
 import type { Types } from "mongoose";
 
 import { connectDB } from "@/lib/db/connect";
+import { compareOutputs } from "@/lib/code-runner/compare";
+import { runAgainstTestCases } from "@/lib/piston/client";
 import {
   AllKeysExhaustedError,
   generateCodingChallenge,
@@ -8,6 +10,7 @@ import {
   generateSubtopicContent,
   readGeminiApiKey,
 } from "@/lib/gemini/client";
+import type { CodingChallengePayload } from "@/lib/gemini/schemas";
 import { AiUsageLog } from "@/models/AiUsageLog";
 import { CodingChallenge } from "@/models/CodingChallenge";
 import { Content } from "@/models/Content";
@@ -212,6 +215,94 @@ async function processQuiz(item: QueueDoc): Promise<{ keyIndex: number }> {
   return { keyIndex: result.keyIndex };
 }
 
+async function verifyCodingChallengeAndSave(
+  challengeId: Types.ObjectId,
+  data: CodingChallengePayload
+) {
+  // 1. Validate test cases structure
+  const inputs = new Set<string>();
+  let hasHidden = false;
+  for (const tc of data.testCases) {
+    if (!tc.input || !tc.expectedOutput) {
+      throw new Error("Validation failed: Test case input/output cannot be empty.");
+    }
+    const norm = tc.input.trim();
+    if (inputs.has(norm)) {
+      throw new Error("Validation failed: Duplicate test cases detected.");
+    }
+    inputs.add(norm);
+    if (tc.hidden) {
+      hasHidden = true;
+    }
+  }
+
+  if (!hasHidden) {
+    throw new Error("Validation failed: Coding challenge must contain at least one hidden test case.");
+  }
+
+  // 2. Validate reference solution fields
+  if (!data.referenceSolution || !data.referenceSolution.code || !data.referenceSolution.language) {
+    throw new Error("Validation failed: Missing reference solution.");
+  }
+
+  // 3. Execute reference solution against the generated inputs
+  let pistonResults;
+  try {
+    pistonResults = await runAgainstTestCases({
+      language: data.referenceSolution.language,
+      code: data.referenceSolution.code,
+      testCases: data.testCases.map((tc) => ({
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+      })),
+    });
+  } catch (err) {
+    throw new Error(`Validation failed: Reference solution runner failed to execute: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // 4. Verify output accuracy and crash status
+  for (let i = 0; i < pistonResults.length; i++) {
+    const res = pistonResults[i]!;
+    const originalTestCase = data.testCases[i]!;
+    
+    // Check for runtime/compile errors
+    if (!res.passed && (res.actual.toLowerCase().includes("error") || res.actual.toLowerCase().includes("exception") || res.actual.toLowerCase().includes("traceback"))) {
+      throw new Error(`Validation failed: Reference solution crashed/errored on test case ${i + 1}: ${res.actual}`);
+    }
+
+    // Compare actual output with expected output using our normalized compareOutputs
+    const matches = compareOutputs(res.actual, originalTestCase.expectedOutput);
+    if (!matches) {
+      throw new Error(
+        `Validation failed: Reference solution output mismatch on test case ${i + 1}.\n` +
+        `Input: ${originalTestCase.input}\n` +
+        `Expected (AI): ${originalTestCase.expectedOutput}\n` +
+        `Computed (Code): ${res.actual}`
+      );
+    }
+  }
+
+  // 5. If all validation passes, save and set status to "ready"
+  await CodingChallenge.updateOne(
+    { _id: challengeId },
+    {
+      $set: {
+        title: data.title,
+        prompt: data.prompt,
+        difficulty: data.difficulty,
+        constraints: data.constraints,
+        inputFormat: data.inputFormat,
+        outputFormat: data.outputFormat,
+        starterCode: data.starterCode,
+        supportedLanguages: data.supportedLanguages,
+        referenceSolution: data.referenceSolution,
+        testCases: data.testCases,
+        status: "ready",
+      },
+    },
+  ).exec();
+}
+
 async function processCodingChallenge(
   item: QueueDoc,
 ): Promise<{ keyIndex: number }> {
@@ -244,18 +335,7 @@ async function processCodingChallenge(
     difficulty: challenge.difficulty,
   });
 
-  await CodingChallenge.updateOne(
-    { _id: challenge._id },
-    {
-      $set: {
-        prompt: result.data.prompt,
-        difficulty: result.data.difficulty,
-        constraints: result.data.constraints,
-        testCases: result.data.testCases,
-        status: "ready",
-      },
-    },
-  ).exec();
+  await verifyCodingChallengeAndSave(challenge._id, result.data);
 
   return { keyIndex: result.keyIndex };
 }
@@ -294,30 +374,21 @@ async function processTopicOutline(
     topicId: topic._id,
   }).exec();
 
-  if (challenge) {
-    await CodingChallenge.updateOne(
-      { _id: challenge._id },
-      {
-        $set: {
-          prompt: result.data.prompt,
-          difficulty: result.data.difficulty,
-          constraints: result.data.constraints,
-          testCases: result.data.testCases,
-          status: "ready",
-        },
-      },
-    ).exec();
-  } else {
+  if (!challenge) {
     challenge = await CodingChallenge.create({
       skillId: skill._id,
       topicId: topic._id,
-      prompt: result.data.prompt,
-      difficulty: result.data.difficulty,
-      constraints: result.data.constraints,
-      testCases: result.data.testCases,
-      status: "ready",
+      prompt: "Generating...",
+      status: "generating",
     });
+  } else {
+    await CodingChallenge.updateOne(
+      { _id: challenge._id },
+      { $set: { status: "generating" } }
+    ).exec();
   }
+
+  await verifyCodingChallengeAndSave(challenge._id, result.data);
 
   await Topic.updateOne(
     { _id: topic._id },
@@ -361,6 +432,21 @@ async function failQueueItem(
       },
     },
   ).exec();
+
+  // If permanent failure, update coding challenge status to failed
+  if (permanent && item.targetId) {
+    if (item.targetType === "coding-challenge") {
+      await CodingChallenge.updateOne(
+        { _id: item.targetId },
+        { $set: { status: "failed" } }
+      ).exec();
+    } else if (item.targetType === "topic-outline") {
+      await CodingChallenge.updateOne(
+        { topicId: item.targetId },
+        { $set: { status: "failed" } }
+      ).exec();
+    }
+  }
 
   return {
     status: "failed",

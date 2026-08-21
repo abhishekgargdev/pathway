@@ -113,14 +113,23 @@ export function codingChallengePrompt(params: {
   difficulty?: "easy" | "medium" | "hard";
 }): string {
   const shape = `{
+  "title": string — short descriptive title,
   "prompt": string — clear problem statement,
   "difficulty": "easy" | "medium" | "hard",
-  "constraints": string[] — limits and I/O rules,
+  "constraints": string[] — limits and general guidelines,
+  "inputFormat": string — description of standard input structure,
+  "outputFormat": string — description of expected output format,
+  "starterCode": string — starter code skeleton that reads from stdin and outputs,
+  "supportedLanguages": string[] — e.g. ["python", "javascript", "typescript"],
+  "referenceSolution": {
+    "language": string — language ID of the correct solution (e.g. "python" or "javascript"),
+    "code": string — complete reference solution code that correctly reads stdin and writes to stdout
+  },
   "testCases": [
     {
-      "input": string — stdin / serialized input,
-      "expectedOutput": string — expected stdout / result,
-      "hidden": boolean — true for hidden tests
+      "input": string — stdin input as a string,
+      "expectedOutput": string — expected stdout as a string,
+      "hidden": boolean — true for hidden test validation
     }
   ]
 }`;
@@ -138,9 +147,10 @@ ${difficultyLine}
 
 Rules:
 - prompt must be self-contained and solvable in a single file.
-- Include at least 3 testCases; at least one should have hidden=true.
-- expectedOutput must match the described I/O format exactly (trim-sensitive).
-- constraints should cover input size / edge cases where relevant.`;
+- The referenceSolution must be correct, fully functioning, and solve the problem perfectly.
+- Generate at least 5 testCases: including basic cases, edge cases (e.g. empty, bounds, negative numbers), and large constraints.
+- At least two test cases must be hidden (hidden=true).
+- expectedOutput must match referenceSolution's output on input exactly.`;
 }
 
 export function solutionAnalysisPrompt(params: {

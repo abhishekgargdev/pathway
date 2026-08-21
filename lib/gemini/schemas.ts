@@ -91,6 +91,10 @@ export type QuizQuestions = z.infer<typeof quizQuestionsSchema>;
 
 /** Coding challenge prompt, constraints, and test cases. */
 export const codingChallengeSchema = z.object({
+  title: z
+    .string()
+    .min(1)
+    .describe("Short descriptive title of the challenge"),
   prompt: z
     .string()
     .min(1)
@@ -101,6 +105,27 @@ export const codingChallengeSchema = z.object({
   constraints: z
     .array(z.string().min(1))
     .describe("Input/output constraints and limits"),
+  inputFormat: z
+    .string()
+    .min(1)
+    .describe("Detailed description of the input format"),
+  outputFormat: z
+    .string()
+    .min(1)
+    .describe("Detailed description of the output format"),
+  starterCode: z
+    .string()
+    .min(1)
+    .describe("Starter code boilerplate for the student to begin"),
+  supportedLanguages: z
+    .array(z.string())
+    .describe("List of supported languages (e.g. ['python', 'javascript', 'typescript'])"),
+  referenceSolution: z
+    .object({
+      language: z.string().min(1),
+      code: z.string().min(1),
+    })
+    .describe("Reference solution that is correct and passes all tests"),
   testCases: z
     .array(
       z.object({
