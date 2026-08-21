@@ -2,16 +2,19 @@ export type SkillTreeNodeState =
   | "locked"
   | "available"
   | "in-progress"
-  | "completed";
+  | "completed"
+  | "generating"
+  | "failed";
 
 export type SkillTreeSubtopic = {
   id: string;
   title: string;
   order: number;
-  status: "pending" | "generating" | "ready";
+  status: "pending" | "generating" | "ready" | "failed";
   progressStatus: "not-started" | "in-progress" | "completed" | null;
   nodeState: SkillTreeNodeState;
   href: string | null;
+  queueItemId?: string | null;
 };
 
 export type SkillTreeTopic = {

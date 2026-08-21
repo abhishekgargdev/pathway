@@ -13,6 +13,7 @@ import { Progress } from "@/models/Progress";
 import { Skill } from "@/models/Skill";
 import { Subtopic } from "@/models/Subtopic";
 import { Topic } from "@/models/Topic";
+import { GenerationQueue } from "@/models/GenerationQueue";
 
 export const dynamic = "force-dynamic";
 
@@ -63,12 +64,25 @@ export async function GET(_request: Request, context: RouteContext) {
         .exec()
     : [];
 
-  const progressRows = await Progress.find({
-    skillId: skill._id,
-    subtopicId: { $exists: true, $ne: null },
-  })
-    .lean()
-    .exec();
+  const [progressRows, queueItems] = await Promise.all([
+    Progress.find({
+      skillId: skill._id,
+      subtopicId: { $exists: true, $ne: null },
+    })
+      .lean()
+      .exec(),
+    GenerationQueue.find({ skillId: skill._id }).lean().exec(),
+  ]);
+
+  const queueStatusBySubtopic = new Map<string, { status: string; id: string }>();
+  for (const item of queueItems) {
+    if (item.targetId && item.targetType === "subtopic-content") {
+      queueStatusBySubtopic.set(item.targetId.toString(), {
+        status: item.status,
+        id: item._id.toString(),
+      });
+    }
+  }
 
   const progressBySubtopic = new Map<
     string,
@@ -104,15 +118,27 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const flatStates: SkillTreeNodeState[] = [];
   for (const { subtopic } of orderedFlat) {
-    const progressStatus = progressBySubtopic.get(subtopic._id.toString()) ?? null;
-    const unlocked = previousCompleted;
-    const nodeState = resolveNodeState({ unlocked, progressStatus });
-    flatStates.push(nodeState);
-    if (nodeState === "completed") {
-      completedSubtopics += 1;
-      previousCompleted = true;
-    } else {
+    const qInfo = queueStatusBySubtopic.get(subtopic._id.toString());
+    const isFailed = qInfo?.status === "failed";
+    const isGenerating = qInfo?.status === "queued" || qInfo?.status === "processing";
+
+    if (isFailed) {
+      flatStates.push("failed");
       previousCompleted = false;
+    } else if (isGenerating) {
+      flatStates.push("generating");
+      previousCompleted = false;
+    } else {
+      const progressStatus = progressBySubtopic.get(subtopic._id.toString()) ?? null;
+      const unlocked = previousCompleted;
+      const nodeState = resolveNodeState({ unlocked, progressStatus });
+      flatStates.push(nodeState);
+      if (nodeState === "completed") {
+        completedSubtopics += 1;
+        previousCompleted = true;
+      } else {
+        previousCompleted = false;
+      }
     }
   }
 
@@ -131,7 +157,9 @@ export async function GET(_request: Request, context: RouteContext) {
       subtitle: item.topic.title,
       state: nodeState,
       href:
-        nodeState === "locked" ? null : `/subtopics/${item.subtopic._id.toString()}`,
+        nodeState === "locked" || nodeState === "generating" || nodeState === "failed"
+          ? null
+          : `/subtopics/${item.subtopic._id.toString()}`,
       topicId: item.topic._id.toString(),
     };
   });
@@ -143,15 +171,26 @@ export async function GET(_request: Request, context: RouteContext) {
       const progressStatus =
         progressBySubtopic.get(subtopic._id.toString()) ?? null;
       const nodeState = pathItem?.state ?? "locked";
+      const qInfo = queueStatusBySubtopic.get(subtopic._id.toString());
+
+      let status: "pending" | "generating" | "ready" | "failed" = subtopic.status;
+      if (qInfo) {
+        if (qInfo.status === "failed") {
+          status = "failed";
+        } else if (qInfo.status === "queued" || qInfo.status === "processing") {
+          status = "generating";
+        }
+      }
 
       return {
         id: subtopic._id.toString(),
         title: subtopic.title,
         order: subtopic.order,
-        status: subtopic.status,
+        status,
         progressStatus,
         nodeState,
         href: pathItem?.href ?? null,
+        queueItemId: qInfo?.id ?? null,
       };
     });
 

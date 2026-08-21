@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   LearningPath,
   type PathNodeData,
+  type PathNodeState,
 } from "@/components/learning-path/learning-path";
 import { SkillPathSkeleton } from "@/components/skills/skill-path-skeleton";
 import type { SkillTreeResponse } from "@/lib/skills/tree-types";
@@ -59,13 +60,19 @@ export function SkillPathView({ skillId }: { skillId: string }) {
     );
   }
 
-  const nodes: PathNodeData[] = data.path.map((item) => ({
-    id: item.id,
-    label: item.label,
-    subtitle: item.subtitle,
-    state: item.state,
-    href: item.href,
-  }));
+  const nodes: PathNodeData[] = data.path.map((item) => {
+    let state = item.state;
+    if (state === "generating" || state === "failed") {
+      state = "locked";
+    }
+    return {
+      id: item.id,
+      label: item.label,
+      subtitle: item.subtitle,
+      state: state as PathNodeState,
+      href: item.href,
+    };
+  });
 
   return (
     <main className="mx-auto w-full max-w-3xl overflow-x-hidden px-5 py-6 md:px-6 md:py-8 lg:px-8">
