@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { StreakCounter } from "@/components/dashboard/streak-counter";
+import { AddSkillDialog } from "@/components/skills/add-skill-dialog";
 import type { DashboardResponse } from "@/lib/dashboard/types";
 import { cn } from "@/lib/utils";
 
@@ -160,9 +161,15 @@ export function DashboardView() {
 
         {/* Active skills */}
         <section id="skills">
-          <h2 className="mb-3.5 font-heading text-base font-semibold text-[#EDEFF7]">
-            Active skills
-          </h2>
+          <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-heading text-base font-semibold text-[#EDEFF7]">
+              Active skills
+            </h2>
+            <AddSkillDialog
+              existingSkillNames={skills.map((s) => s.name)}
+              triggerClassName="h-10 min-h-10 px-3 text-xs shadow-[0_0_16px_rgba(94,234,212,0.2)]"
+            />
+          </div>
 
           {skills.length === 0 ? (
             <div className="rounded-2xl border border-[#2A2F4A] bg-[#171B2E] p-5 shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
@@ -170,6 +177,12 @@ export function DashboardView() {
               <p className="mt-1 text-[13px] text-[#8B93B0]">
                 Add a skill to generate your first learning path.
               </p>
+              <div className="mt-4">
+                <AddSkillDialog
+                  existingSkillNames={[]}
+                  triggerClassName="w-full sm:w-auto"
+                />
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-3 md:gap-4">

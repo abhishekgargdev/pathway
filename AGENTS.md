@@ -40,6 +40,7 @@ AiUsageLog: { keyIndex: Number required (1-6), date: String required (YYYY-MM-DD
 - POST /api/auth/[...nextauth] — NextAuth credentials login
 - GET /api/dashboard — auth required; returns streak, continue-card target, active skills with % complete, today's newly-ready flags
 - POST /api/skills — auth required; body { name }; creates Skill, makes one Gemini call for topic/subtopic outline, inserts Topic/Subtopic docs (status pending), enqueues GenerationQueue rows for each, returns the new skill + outline
+- Skill suggestion chips (Add Skill dialog) use a curated fallback list in `lib/skills/suggestions.ts` (not a second Gemini call) to preserve daily quota for outline + queued content generation. Chips filter client-side by the typed query and exclude skills already on the dashboard.
 - GET /api/skills/:skillId/tree — auth required; returns Topics + nested Subtopics with status and Progress joined in
 - GET /api/subtopics/:subtopicId — auth required; if Content missing/pending, triggers a single lazy generation call (respecting quota) before responding; returns content + examples + status
 - POST /api/subtopics/:subtopicId/quiz — auth required; body { answers: number[] }; scores against QuizQuestion.correctAnswerIndex, saves QuizAttempt, updates Progress, if failed twice in a row triggers one Gemini call for a simplified explanation
