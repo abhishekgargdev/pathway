@@ -89,6 +89,12 @@ export async function GET(_request: Request, context: RouteContext) {
     .lean()
     .exec();
 
+  const submissions = await Submission.find({ challengeId: id })
+    .sort({ submittedAt: -1 })
+    .limit(10)
+    .lean()
+    .exec();
+
   const testCases = challenge.testCases ?? [];
   const visible = testCases.filter((t) => !t.hidden);
 
@@ -130,6 +136,18 @@ export async function GET(_request: Request, context: RouteContext) {
       : null,
     hasPassingSubmission: Boolean(passing),
     hasAnalysis: Boolean(analysis),
+    recentSubmissions: submissions.map((s) => {
+      const total = s.testResults?.length ?? 0;
+      const passedCount = s.testResults?.filter((r) => r.passed).length ?? 0;
+      const score = total === 0 ? 0 : Math.round((passedCount / total) * 100);
+      return {
+        id: s._id.toString(),
+        language: s.language,
+        allPassed: s.allPassed,
+        submittedAt: s.submittedAt.toISOString(),
+        score,
+      };
+    }),
   };
 
   return NextResponse.json(body);
