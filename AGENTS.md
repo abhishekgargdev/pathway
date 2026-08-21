@@ -62,9 +62,42 @@ Key rotation lives in lib/gemini/client.ts: round-robin across GEMINI_KEY_1..6, 
 
 Background #0E1220, surface #171B2E, surface-raised #1F2440, text #EDEFF7 / muted #8B93B0, accent teal #5EEAD4 (active/progress), amber #FBBF24 (streak/success), coral #FB7185 (errors/failed tests), gradient teal→violet (#5EEAD4 → #8B7CF6) for hero/celebratory moments only. Space Grotesk (headings), Inter (body), JetBrains Mono (code/data/complexity). Radius: 16px cards, 12px buttons/inputs, full pills. Every screen has consistent outer padding (20px mobile → 24-32px desktop) and consistent gap (12-16px) between stacked cards — nothing ever touches the viewport edge or another element with zero gap. Resting cards get a soft neutral shadow; active/elevated elements (continue card, in-progress node, streak card) get a colored glow (teal or amber) instead. Signature element: a vertical connected-node path for a skill's topic/subtopic tree (locked/available/in-progress/completed states), echoed in the loading animation as a self-drawing line with a traveling glow dot. Mobile-first: design/verify at 320px, 375px, 430px, then adapt at 768px and 1280px — bottom tab bar (mobile) becomes a left sidebar (desktop).
 
+## UI / UX principles (required on every screen)
+
+Responsive & layout
+- Design must be fully responsive for all screen sizes (320px → 430px → 768px → 1280px+). Layout, type scale, spacing, and nav adapt; content must remain usable without pinch-zoom.
+- No horizontal scroll anywhere in the app. All content must fit the viewport width; use wrapping, truncation with tooltip/expand, or vertical stack — never overflow-x.
+- Content must never cross or spill outside its container (cards, modals, code blocks, nodes). Use overflow-hidden / overflow-y-auto on boxes, long words break safely (break-words), and code blocks scroll vertically or wrap inside the box.
+
+Scrolling & progressive load
+- Prefer section-level scrollers (scrollable panels / sticky headers / virtualized or paginated lists) so a single page does not mount an endless wall of sections at once.
+- Long trees, queues, quiz lists, challenge history, and manage views should load/reveal incrementally (lazy sections, “load more”, or in-panel scroll) instead of dumping everything into one tall document scroll that feels heavy.
+
+Motion, animation & transitions
+- Use Framer Motion for intentional motion only: page/route transitions, continue-card elevation, path node state changes, loading line/glow, modal enter/exit, success/fail feedback.
+- Keep transitions short and consistent (roughly 150–300ms); ease-out for enter, ease-in for exit. Do not animate everything; avoid motion that distracts from reading or solving.
+- Respect reduced-motion preferences (prefer-reduced-motion: cut decorative motion, keep essential state feedback).
+
+Color, text & interaction clarity
+- Text colors must meet contrast on surfaces: primary #EDEFF7 for body/headings, muted #8B93B0 for secondary/meta, teal for active/progress affordances, amber for streak/success, coral for errors/destructive/failed tests. Never put muted text on muted backgrounds where it becomes unreadable.
+- Interactive elements (buttons, links, nodes, tabs) must have clear default / hover / focus / active / disabled states. Focus rings are required for keyboard use.
+- Destructive actions use coral styling; primary progress/CTA use teal. Do not rely on color alone — pair with labels/icons.
+
+Modals & confirmations
+- Destructive or irreversible actions (delete skill, reset queue item, clear progress, etc.) must open a confirmation modal — never delete/reset on a single click.
+- Modals: surface-raised background, clear title + short consequence copy, primary cancel (safe default) + destructive/confirm action, trap focus, close on Escape/backdrop, and content that stays inside the modal box on all breakpoints (scroll the modal body if needed, not the page underneath).
+- Use modals for other focused interactions that need a decision (confirm regenerate, confirm leave with unsaved code, etc.) rather than burying them in inline clutter.
+
+Professional baseline UX
+- One clear primary action per view; secondary actions stay visually quieter.
+- Consistent spacing rhythm (12–16px gaps, outer padding as above); no overlapping layers or zero-gap collisions.
+- Empty, loading, error, and “ready tomorrow” states are first-class — never blank screens or raw error dumps.
+- Forms and editors: labels, validation messages near fields, disable submit while pending, preserve user input on soft failures.
+- Touch targets large enough on mobile (~44px); no tiny icon-only controls without accessible names.
+
 ## Figma export
 
-figma/ contains a Figma Make export — the visual source of truth for layout/spacing intent. For every screen, check figma/ first, extract structure/spacing intent, then re-implement properly with real shadcn components, Tailwind using the tokens above, and Framer Motion for the specified animations — adapt, don't copy-paste wholesale.
+figma/ contains a Figma Make export — the visual source of truth for layout/spacing intent. For every screen, check figma/ first, extract structure/spacing intent, then re-implement properly with real shadcn components, Tailwind using the tokens above, and Framer Motion for the specified animations — adapt, don't copy-paste wholesale. Follow the UI/UX principles above on every screen (responsive, no horizontal scroll, in-box content, section scrollers, modals for destructive actions, professional interaction states).
 
 Keep this file updated if any architecture decision changes mid-build.
 
