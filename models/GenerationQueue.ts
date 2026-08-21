@@ -21,6 +21,8 @@ export interface IGenerationQueue {
   attempts: number;
   lastError?: string;
   createdAt: Date;
+  /** Set when status becomes done — used for dashboard "new" flags */
+  completedAt?: Date;
 }
 
 const GenerationQueueSchema = new Schema<IGenerationQueue>({
@@ -47,6 +49,7 @@ const GenerationQueueSchema = new Schema<IGenerationQueue>({
   attempts: { type: Number, default: 0 },
   lastError: { type: String },
   createdAt: { type: Date, default: Date.now },
+  completedAt: { type: Date },
 });
 
 export const GenerationQueue: Model<IGenerationQueue> =

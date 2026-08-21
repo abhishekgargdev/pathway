@@ -1,6 +1,8 @@
-import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 
+import { AppShell } from "@/components/app-shell";
+import { AppProviders } from "@/components/providers/app-providers";
 import { authOptions } from "@/lib/auth";
 
 export default async function AppLayout({
@@ -15,8 +17,8 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-full flex flex-col bg-[#0E1220] text-[#EDEFF7]">
-      {children}
-    </div>
+    <AppProviders>
+      <AppShell>{children}</AppShell>
+    </AppProviders>
   );
 }

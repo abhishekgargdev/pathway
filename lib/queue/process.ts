@@ -414,7 +414,7 @@ export async function processQueueItem(
     await GenerationQueue.updateOne(
       { _id: item._id },
       {
-        $set: { status: "done" },
+        $set: { status: "done", completedAt: new Date() },
         $unset: { lastError: 1 },
       },
     ).exec();
