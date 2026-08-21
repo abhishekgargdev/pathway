@@ -143,8 +143,27 @@
   animation: path-pulse 2s ease-in-out infinite;
 }
 
+@keyframes path-line-fill {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.animate-path-line-fill {
+  transform-origin: top;
+  animation: path-line-fill 0.35s ease-out forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-path-pulse {
+  .animate-path-pulse,
+  .animate-path-line-fill {
     animation: none !important;
+  }
+
+  .animate-path-line-fill {
+    transform: none;
   }
 }
