@@ -8,6 +8,7 @@ import type {
   SkillTreeSubtopic,
   SkillTreeTopic,
 } from "@/lib/skills/tree-types";
+import { CodingChallenge } from "@/models/CodingChallenge";
 import { Progress } from "@/models/Progress";
 import { Skill } from "@/models/Skill";
 import { Subtopic } from "@/models/Subtopic";
@@ -165,6 +166,32 @@ export async function GET(_request: Request, context: RouteContext) {
     };
   });
 
+  const challengesDocs = await CodingChallenge.find({ skillId: skill._id })
+    .sort({ createdAt: 1 })
+    .lean()
+    .exec();
+
+  const topicTitleById = new Map(
+    topics.map((t) => [t._id.toString(), t.title] as const),
+  );
+
+  const challenges: SkillTreeResponse["challenges"] = challengesDocs.map(
+    (ch) => {
+      const topicId = ch.topicId?.toString() ?? null;
+      return {
+        id: ch._id.toString(),
+        topicId,
+        topicTitle: topicId ? (topicTitleById.get(topicId) ?? null) : null,
+        difficulty: ch.difficulty ?? null,
+        status: ch.status,
+        href:
+          ch.status === "ready"
+            ? `/challenges/${ch._id.toString()}`
+            : `/challenges/${ch._id.toString()}`,
+      };
+    },
+  );
+
   const body: SkillTreeResponse = {
     skill: {
       id: skill._id.toString(),
@@ -178,6 +205,7 @@ export async function GET(_request: Request, context: RouteContext) {
     },
     topics: treeTopics,
     path,
+    challenges,
   };
 
   return NextResponse.json(body);

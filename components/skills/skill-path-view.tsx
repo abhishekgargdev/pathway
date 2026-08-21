@@ -112,6 +112,35 @@ export function SkillPathView({ skillId }: { skillId: string }) {
           className="shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
         />
       )}
+
+      {data.challenges && data.challenges.length > 0 ? (
+        <section className="mt-5 flex flex-col gap-3 md:mt-6">
+          <h2 className="font-heading text-sm font-semibold text-[#EDEFF7]">
+            Coding challenges
+          </h2>
+          <div className="flex flex-col gap-2">
+            {data.challenges.map((ch) => (
+              <Link
+                key={ch.id}
+                href={ch.href ?? `/challenges/${ch.id}`}
+                className={cn(
+                  "rounded-2xl border border-[#2A2F4A] bg-[#171B2E] px-4 py-3",
+                  "shadow-[0_4px_16px_rgba(0,0,0,0.2)]",
+                  "transition-colors hover:border-[#5EEAD4]/30",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5EEAD4]/40",
+                )}
+              >
+                <p className="font-heading text-sm font-semibold text-[#EDEFF7]">
+                  {ch.topicTitle ?? "Challenge"}
+                </p>
+                <p className="mt-0.5 text-[12px] capitalize text-[#8B93B0]">
+                  {ch.difficulty ?? "mixed"} · {ch.status}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }

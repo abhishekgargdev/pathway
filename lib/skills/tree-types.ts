@@ -43,4 +43,13 @@ export type SkillTreeResponse = {
     href: string | null;
     topicId: string;
   }>;
+  /** Topic-level coding challenges (when ready / available) */
+  challenges: Array<{
+    id: string;
+    topicId: string | null;
+    topicTitle: string | null;
+    difficulty: "easy" | "medium" | "hard" | null;
+    status: "pending" | "generating" | "ready";
+    href: string | null;
+  }>;
 };

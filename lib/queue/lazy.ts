@@ -1,21 +1,25 @@
-import { Types } from "mongoose";
+﻿import { Types } from "mongoose";
 
 import { connectDB } from "@/lib/db/connect";
 import {
   AllKeysExhaustedError,
   generateQuizQuestions,
   generateSimplifiedExplanation,
+  generateSolutionAnalysis,
   generateSubtopicContent,
   listAvailableKeys,
 } from "@/lib/gemini/client";
 import { enqueueGeneration } from "@/lib/queue/enqueue";
 import { processQueueItem } from "@/lib/queue/process";
+import { CodingChallenge } from "@/models/CodingChallenge";
 import { Content } from "@/models/Content";
 import { GenerationQueue } from "@/models/GenerationQueue";
 import { QuizQuestion } from "@/models/QuizQuestion";
 import { Skill } from "@/models/Skill";
+import { SolutionAnalysis } from "@/models/SolutionAnalysis";
 import { Subtopic } from "@/models/Subtopic";
 import { Topic } from "@/models/Topic";
+import type { SolutionAnalysisPayload } from "@/lib/gemini/schemas";
 
 export type LazyContentResult =
   | { status: "ready" }
@@ -104,7 +108,7 @@ export async function lazyEnsureSubtopicContent(
     if (result.status === "failed" && result.permanent) {
       return { status: "error", message: result.error };
     }
-    // Soft fail — check if content landed anyway
+    // Soft fail â€” check if content landed anyway
     const content = await Content.findOne({ subtopicId: id }).lean().exec();
     if (content) return { status: "ready" };
     return {
@@ -157,12 +161,13 @@ export async function lazyEnsureQuizQuestions(
 
   if (!queueItem) {
     const { topic } = await loadContext(id);
-    queueItem = await enqueueGeneration({
+    const enqueued = await enqueueGeneration({
       targetType: "quiz",
       targetId: id,
       skillId: topic.skillId,
       priority: 900,
     });
+    queueItem = await GenerationQueue.findById(enqueued._id).exec();
   }
 
   if (!queueItem) {
@@ -266,7 +271,7 @@ export async function ensureSimplifiedExplanation(
   }
 }
 
-/** Direct content gen used when queue process is awkward — still respects quota. */
+/** Direct content gen used when queue process is awkward â€” still respects quota. */
 export async function generateSubtopicContentDirect(
   subtopicId: Types.ObjectId,
 ): Promise<LazyContentResult> {
@@ -313,6 +318,194 @@ export async function generateSubtopicContentDirect(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Generation failed",
+    };
+  }
+}
+
+/**
+ * Lazy-generate a CodingChallenge if still pending.
+ */
+export async function lazyEnsureCodingChallenge(
+  challengeId: string,
+): Promise<LazyContentResult> {
+  await connectDB();
+  if (!Types.ObjectId.isValid(challengeId)) {
+    return { status: "error", message: "Invalid challenge id" };
+  }
+
+  const id = new Types.ObjectId(challengeId);
+  const challenge = await CodingChallenge.findById(id).exec();
+  if (!challenge) {
+    return { status: "error", message: "Challenge not found" };
+  }
+
+  if (
+    challenge.status === "ready" &&
+    challenge.prompt?.trim() &&
+    (challenge.testCases?.length ?? 0) > 0
+  ) {
+    return { status: "ready" };
+  }
+
+  if (!(await hasQuota())) {
+    return { status: "ready_tomorrow" };
+  }
+
+  let queueItem = await GenerationQueue.findOne({
+    targetType: "coding-challenge",
+    targetId: id,
+    status: { $in: ["queued", "failed"] },
+    attempts: { $lt: 3 },
+  }).exec();
+
+  if (queueItem && queueItem.status === "failed") {
+    await GenerationQueue.updateOne(
+      { _id: queueItem._id },
+      { $set: { status: "queued" } },
+    ).exec();
+  }
+
+  if (!queueItem && challenge.topicId) {
+    queueItem = await GenerationQueue.findOne({
+      targetType: "topic-outline",
+      targetId: challenge.topicId,
+      status: { $in: ["queued", "failed"] },
+      attempts: { $lt: 3 },
+    }).exec();
+    if (queueItem && queueItem.status === "failed") {
+      await GenerationQueue.updateOne(
+        { _id: queueItem._id },
+        { $set: { status: "queued" } },
+      ).exec();
+    }
+  }
+
+  if (!queueItem) {
+    const enqueued = await enqueueGeneration({
+      targetType: "coding-challenge",
+      targetId: id,
+      skillId: challenge.skillId,
+      priority: 800,
+    });
+    queueItem = await GenerationQueue.findById(enqueued._id).exec();
+  }
+
+  if (!queueItem) {
+    return { status: "error", message: "Could not enqueue challenge generation" };
+  }
+
+  try {
+    const result = await processQueueItem(queueItem._id);
+    if (result.status === "exhausted") return { status: "ready_tomorrow" };
+    if (result.status === "done") return { status: "ready" };
+
+    const refreshed = await CodingChallenge.findById(id).lean().exec();
+    if (
+      refreshed?.status === "ready" &&
+      (refreshed.testCases?.length ?? 0) > 0
+    ) {
+      return { status: "ready" };
+    }
+
+    return {
+      status: "error",
+      message:
+        result.status === "failed"
+          ? result.error
+          : "Challenge generation skipped",
+    };
+  } catch (error) {
+    if (error instanceof AllKeysExhaustedError) {
+      return { status: "ready_tomorrow" };
+    }
+    return {
+      status: "error",
+      message:
+        error instanceof Error ? error.message : "Challenge generation failed",
+    };
+  }
+}
+
+export type EnsureAnalysisResult =
+  | { status: "ready"; data: SolutionAnalysisPayload }
+  | { status: "ready_tomorrow" }
+  | { status: "error"; message: string };
+
+/**
+ * Generate + cache SolutionAnalysis for a challenge (quota-aware).
+ */
+export async function ensureSolutionAnalysis(params: {
+  challengeId: Types.ObjectId;
+  skillName: string;
+  challengePrompt: string;
+  language: string;
+  code: string;
+}): Promise<EnsureAnalysisResult> {
+  await connectDB();
+
+  const cached = await SolutionAnalysis.findOne({
+    challengeId: params.challengeId,
+  })
+    .lean()
+    .exec();
+
+  if (cached?.yourSolution && cached.alternatives?.length === 5) {
+    return {
+      status: "ready",
+      data: {
+        yourSolution: {
+          timeComplexity: cached.yourSolution.timeComplexity ?? "",
+          spaceComplexity: cached.yourSolution.spaceComplexity ?? "",
+          reasoning: cached.yourSolution.reasoning ?? "",
+          feedback: cached.yourSolution.feedback ?? "",
+        },
+        alternatives: cached.alternatives.map((alt) => ({
+          code: alt.code ?? "",
+          language: alt.language ?? "python",
+          conceptsUsed: alt.conceptsUsed ?? [],
+          dsaConcepts: alt.dsaConcepts ?? [],
+          timeComplexity: alt.timeComplexity ?? "",
+          spaceComplexity: alt.spaceComplexity ?? "",
+          reasoning: alt.reasoning ?? "",
+        })),
+      },
+    };
+  }
+
+  if (!(await hasQuota())) {
+    return { status: "ready_tomorrow" };
+  }
+
+  try {
+    const result = await generateSolutionAnalysis({
+      skillName: params.skillName,
+      challengePrompt: params.challengePrompt,
+      language: params.language,
+      code: params.code,
+    });
+
+    await SolutionAnalysis.findOneAndUpdate(
+      { challengeId: params.challengeId },
+      {
+        $set: {
+          yourSolution: result.data.yourSolution,
+          alternatives: result.data.alternatives,
+          generatedAt: new Date(),
+        },
+        $setOnInsert: { challengeId: params.challengeId },
+      },
+      { upsert: true },
+    ).exec();
+
+    return { status: "ready", data: result.data };
+  } catch (error) {
+    if (error instanceof AllKeysExhaustedError) {
+      return { status: "ready_tomorrow" };
+    }
+    return {
+      status: "error",
+      message:
+        error instanceof Error ? error.message : "Analysis generation failed",
     };
   }
 }
