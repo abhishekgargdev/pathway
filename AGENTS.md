@@ -17,7 +17,7 @@ Topic: { skillId: ObjectId ref Skill required, title: String required, order: Nu
 
 Subtopic: { topicId: ObjectId ref Topic required, title: String required, order: Number required, status: enum [pending, generating, ready] default pending, createdAt: Date default now }
 
-Content: { subtopicId: ObjectId ref Subtopic required unique, body: String required (markdown), examples: [{ title: String, explanation: String, code: String, language: String }], generatedAt: Date, generatedByKeyIndex: Number, version: Number default 1 }
+Content: { subtopicId: ObjectId ref Subtopic required unique, body: String required (markdown), examples: [{ title: String, explanation: String, code: String, language: String }], generatedAt: Date, generatedByKeyIndex: Number, version: Number default 1, simplifiedExplanation: String (cached after 2 consecutive quiz fails), simplifiedExplanationAt: Date }
 
 QuizQuestion: { subtopicId: ObjectId ref Subtopic required, question: String required, options: [String] required, correctAnswerIndex: Number required, explanation: String }
 
@@ -42,8 +42,9 @@ AiUsageLog: { keyIndex: Number required (1-6), date: String required (YYYY-MM-DD
 - POST /api/skills — auth required; body { name }; creates Skill, makes one Gemini call for topic/subtopic outline, inserts Topic/Subtopic docs (status pending), enqueues GenerationQueue rows for each, returns the new skill + outline
 - Skill suggestion chips (Add Skill dialog) use a curated fallback list in `lib/skills/suggestions.ts` (not a second Gemini call) to preserve daily quota for outline + queued content generation. Chips filter client-side by the typed query and exclude skills already on the dashboard.
 - GET /api/skills/:skillId/tree — auth required; returns Topics + nested Subtopics with status and Progress joined in
-- GET /api/subtopics/:subtopicId — auth required; if Content missing/pending, triggers a single lazy generation call (respecting quota) before responding; returns content + examples + status
-- POST /api/subtopics/:subtopicId/quiz — auth required; body { answers: number[] }; scores against QuizQuestion.correctAnswerIndex, saves QuizAttempt, updates Progress, if failed twice in a row triggers one Gemini call for a simplified explanation
+- GET /api/subtopics/:subtopicId — auth required; if Content missing/pending, triggers a single lazy generation call (respecting quota) before responding; returns content + examples + status (`ready` | `ready_tomorrow` | …)
+- GET /api/subtopics/:subtopicId/quiz — auth required; returns questions (with answer key for single-user immediate feedback); lazy-generates quiz if empty
+- POST /api/subtopics/:subtopicId/quiz — auth required; body { answers: number[] }; scores against QuizQuestion.correctAnswerIndex (≥70% pass), saves QuizAttempt, updates Progress, if failed twice in a row triggers one Gemini call for a simplified explanation (cached on Content)
 - GET /api/challenges/:challengeId — auth required; returns prompt/constraints/visible test cases
 - POST /api/challenges/:challengeId/submit — auth required; body { language, code }; sends to Piston with test cases, stores Submission with per-test results
 - GET /api/challenges/:challengeId/analysis — auth required; only valid once a Submission has allPassed true; returns cached SolutionAnalysis or generates one (one Gemini call, Zod-validated, exactly 5 alternatives + your-solution analysis), caches by challengeId

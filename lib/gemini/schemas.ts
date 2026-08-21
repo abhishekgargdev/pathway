@@ -160,3 +160,13 @@ export const solutionAnalysisSchema = z.object({
 });
 
 export type SolutionAnalysisPayload = z.infer<typeof solutionAnalysisSchema>;
+
+/** Simplified re-explanation after repeated quiz failure. */
+export const simplifiedExplanationSchema = z.object({
+  explanation: z
+    .string()
+    .min(1)
+    .describe("Plain-language simplified explanation of the subtopic"),
+});
+
+export type SimplifiedExplanation = z.infer<typeof simplifiedExplanationSchema>;

@@ -10,6 +10,7 @@ import {
   codingChallengePrompt,
   quizQuestionsPrompt,
   skillOutlinePrompt,
+  simplifiedExplanationPrompt,
   solutionAnalysisPrompt,
   subtopicContentPrompt,
 } from "@/lib/gemini/prompts";
@@ -17,10 +18,12 @@ import {
   codingChallengeSchema,
   quizQuestionsSchema,
   skillOutlineSchema,
+  simplifiedExplanationSchema,
   solutionAnalysisSchema,
   subtopicContentSchema,
   type CodingChallengePayload,
   type QuizQuestions,
+  type SimplifiedExplanation,
   type SkillOutline,
   type SolutionAnalysisPayload,
   type SubtopicContent,
@@ -322,5 +325,17 @@ export async function generateSolutionAnalysis(params: {
   return generateValidatedJson({
     prompt: solutionAnalysisPrompt(params),
     schema: solutionAnalysisSchema,
+  });
+}
+
+export async function generateSimplifiedExplanation(params: {
+  skillName: string;
+  topicTitle: string;
+  subtopicTitle: string;
+  contentSummary?: string;
+}): Promise<GenerateJsonResult<SimplifiedExplanation>> {
+  return generateValidatedJson({
+    prompt: simplifiedExplanationPrompt(params),
+    schema: simplifiedExplanationSchema,
   });
 }

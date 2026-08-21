@@ -189,3 +189,32 @@ Rules:
 - Each alternative needs real code, conceptsUsed, dsaConcepts, complexities, and reasoning.
 - Prefer the same language as the submission unless another language better illustrates a concept.`;
 }
+
+export function simplifiedExplanationPrompt(params: {
+  skillName: string;
+  topicTitle: string;
+  subtopicTitle: string;
+  contentSummary?: string;
+}): string {
+  const shape = `{
+  "explanation": string — a clear, simpler re-teaching of the subtopic in markdown-friendly plain prose
+}`;
+
+  const contentBlock = params.contentSummary
+    ? `\nOriginal lesson excerpt:\n${params.contentSummary}\n`
+    : "";
+
+  return `${jsonOnlyPreamble(shape)}
+
+The learner failed the quiz twice on this subtopic and needs a simpler explanation.
+
+- Skill: "${params.skillName}"
+- Topic: "${params.topicTitle}"
+- Subtopic: "${params.subtopicTitle}"
+${contentBlock}
+Rules:
+- Use shorter sentences and concrete analogies.
+- Avoid jargon, or define it immediately when needed.
+- Do not include a quiz or code dump longer than ~15 lines.
+- Keep explanation focused on the core idea only.`;
+}

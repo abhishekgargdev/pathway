@@ -31,7 +31,7 @@ export async function enqueueGeneration(
     attempts: 0,
   });
 
-  return doc.toObject() as IGenerationQueue & { _id: Types.ObjectId };
+  return doc as IGenerationQueue & { _id: Types.ObjectId };
 }
 
 /**
