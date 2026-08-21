@@ -197,31 +197,66 @@ export function DashboardView() {
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5EEAD4]/40",
                   )}
                 >
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mb-2.5 flex items-start justify-between gap-3">
                     <span className="min-w-0 flex-1 break-words font-heading text-sm font-medium text-[#EDEFF7]">
                       {skill.name}
                     </span>
-                    {skill.isNew ? (
-                      <span className="shrink-0 rounded-full bg-[#FBBF24]/15 px-2 py-0.5 text-[10px] font-bold tracking-[0.5px] text-[#FBBF24]">
-                        NEW
+                    <div className="flex items-center gap-1.5">
+                      {skill.status === "generating" || skill.status === "pending" ? (
+                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#5EEAD4]/10 px-2 py-0.5 text-[9px] font-bold text-[#5EEAD4] animate-pulse">
+                          GENERATING
+                        </span>
+                      ) : skill.status === "failed" ? (
+                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#FB7185]/10 px-2 py-0.5 text-[9px] font-bold text-[#FB7185]">
+                          FAILED
+                        </span>
+                      ) : null}
+                      {skill.isNew ? (
+                        <span className="shrink-0 rounded-full bg-[#FBBF24]/15 px-2 py-0.5 text-[10px] font-bold tracking-[0.5px] text-[#FBBF24]">
+                          NEW
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {skill.description ? (
+                    <p className="mb-3 text-[12px] leading-relaxed text-[#8B93B0] line-clamp-2">
+                      {skill.description}
+                    </p>
+                  ) : null}
+
+                  {skill.status === "ready" ? (
+                    <>
+                      <div className="mb-2 h-1 overflow-hidden rounded-full bg-[#2A2F4A]">
+                        <div
+                          className="h-full rounded-full bg-[#5EEAD4] transition-[width] duration-500 ease-out"
+                          style={{ width: `${skill.percentComplete}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="text-[#8B93B0]">
+                          {skill.completedSubtopics} of {skill.totalSubtopics}{" "}
+                          subtopics
+                        </span>
+                        <span className="font-medium text-[#5EEAD4]">
+                          {skill.percentComplete}%
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-[#8B93B0] italic">
+                      Outline is preparing. Content will load once ready.
+                    </div>
+                  )}
+
+                  {skill.status === "ready" && skill.currentSubtopic ? (
+                    <div className="mt-3 pt-3 border-t border-[#2A2F4A]/30 flex items-center justify-between gap-3 text-[11px]">
+                      <span className="text-[#8B93B0]">Next Lesson:</span>
+                      <span className="font-medium text-[#5EEAD4] truncate max-w-[220px]" title={skill.currentSubtopic}>
+                        {skill.currentSubtopic}
                       </span>
-                    ) : null}
-                  </div>
-                  <div className="mb-2 h-1 overflow-hidden rounded-full bg-[#2A2F4A]">
-                    <div
-                      className="h-full rounded-full bg-[#5EEAD4] transition-[width] duration-500 ease-out"
-                      style={{ width: `${skill.percentComplete}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-[#8B93B0]">
-                      {skill.completedSubtopics} of {skill.totalSubtopics}{" "}
-                      subtopics
-                    </span>
-                    <span className="font-medium text-[#5EEAD4]">
-                      {skill.percentComplete}%
-                    </span>
-                  </div>
+                    </div>
+                  ) : null}
                 </Link>
               ))}
             </div>

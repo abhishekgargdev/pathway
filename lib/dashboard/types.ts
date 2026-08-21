@@ -13,10 +13,13 @@ export type DashboardContinueTarget = {
 export type DashboardSkill = {
   id: string;
   name: string;
+  description: string | null;
   percentComplete: number;
   completedSubtopics: number;
   totalSubtopics: number;
   isNew: boolean;
+  status: "pending" | "generating" | "ready" | "failed";
+  currentSubtopic: string | null;
 };
 
 export type DashboardResponse = {
