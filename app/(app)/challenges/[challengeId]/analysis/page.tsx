@@ -1,8 +1,8 @@
-import { AnalysisView } from "@/components/challenges/analysis-view";
+import { SolutionAnalysisView } from "@/components/challenges/solution-analysis-view";
 
 type PageProps = { params: Promise<{ challengeId: string }> };
 
 export default async function AnalysisPage({ params }: PageProps) {
   const { challengeId } = await params;
-  return <AnalysisView challengeId={challengeId} />;
+  return <SolutionAnalysisView challengeId={challengeId} />;
 }
