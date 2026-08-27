@@ -125,22 +125,12 @@ export async function GET() {
 
   await withDb();
 
-  const activeSkills = await Skill.find({ userId: session!.user.id, status: "active" })
-    .sort({ createdAt: -1 })
+  const progressRows = await Progress.find({
+    lastVisitedAt: { $exists: true, $ne: null },
+  })
+    .select("lastVisitedAt status subtopicId skillId topicId")
     .lean()
     .exec();
-
-  const userSkillIds = activeSkills.map((s) => s._id);
-
-  const progressRows = userSkillIds.length > 0
-    ? await Progress.find({
-        skillId: { $in: userSkillIds },
-        lastVisitedAt: { $exists: true, $ne: null },
-      })
-        .select("lastVisitedAt status subtopicId skillId topicId")
-        .lean()
-        .exec()
-    : [];
 
   const activityDays = new Set<string>();
   for (const row of progressRows) {
@@ -152,72 +142,26 @@ export async function GET() {
   const streakDays = computeStreak(activityDays);
   const last7Days = last7DayFlags(activityDays);
 
-  // Priority 1: current in-progress subtopic
-  const inProgress = userSkillIds.length > 0
-    ? await Progress.findOne({
-        skillId: { $in: userSkillIds },
-        status: "in-progress",
-        subtopicId: { $exists: true, $ne: null },
-      })
-        .sort({ lastVisitedAt: -1 })
-        .lean()
-        .exec()
-    : null;
-
-  let continueSubtopicId: Types.ObjectId | null = null;
-  let continueSkillId: Types.ObjectId | null = null;
-
-  if (inProgress?.subtopicId) {
-    continueSubtopicId = inProgress.subtopicId;
-    continueSkillId = inProgress.skillId;
-  } else {
-    // Priority 2: first available incomplete subtopic
-    for (const skill of activeSkills) {
-      const topics = await Topic.find({ skillId: skill._id }).sort({ order: 1 }).select("_id").lean().exec();
-      const topicIds = topics.map((t) => t._id);
-      if (topicIds.length === 0) continue;
-
-      const subtopics = await Subtopic.find({ topicId: { $in: topicIds } })
-        .sort({ order: 1 })
-        .lean()
-        .exec();
-      
-      const topicOrderMap = new Map(topics.map((t, idx) => [t._id.toString(), idx]));
-      subtopics.sort((a, b) => {
-        const orderA = topicOrderMap.get(a.topicId.toString()) ?? 0;
-        const orderB = topicOrderMap.get(b.topicId.toString()) ?? 0;
-        if (orderA !== orderB) return orderA - orderB;
-        return a.order - b.order;
-      });
-
-      const completedSubtopicIds = new Set(
-        (
-          await Progress.find({
-            skillId: skill._id,
-            status: "completed",
-            subtopicId: { $exists: true, $ne: null },
-          })
-            .select("subtopicId")
-            .lean()
-            .exec()
-        ).map((p) => p.subtopicId!.toString())
-      );
-
-      const incomplete = subtopics.find((s) => !completedSubtopicIds.has(s._id.toString()));
-      if (incomplete) {
-        continueSubtopicId = incomplete._id;
-        continueSkillId = skill._id;
-        break;
-      }
-    }
-  }
+  const continueProgress = await Progress.findOne({
+    status: "in-progress",
+    subtopicId: { $exists: true, $ne: null },
+  })
+    .sort({ lastVisitedAt: -1 })
+    .lean()
+    .exec();
 
   let continueTarget: DashboardContinueTarget | null = null;
 
-  if (continueSubtopicId && continueSkillId) {
-    const subtopic = await Subtopic.findById(continueSubtopicId).lean().exec();
-    const topic = subtopic ? await Topic.findById(subtopic.topicId).lean().exec() : null;
-    const skill = await Skill.findById(continueSkillId).lean().exec();
+  if (continueProgress?.subtopicId) {
+    const subtopic = await Subtopic.findById(continueProgress.subtopicId)
+      .lean()
+      .exec();
+    const topic = subtopic
+      ? await Topic.findById(subtopic.topicId).lean().exec()
+      : null;
+    const skill = topic
+      ? await Skill.findById(topic.skillId).lean().exec()
+      : await Skill.findById(continueProgress.skillId).lean().exec();
 
     if (subtopic && topic && skill) {
       const stats = await skillSubtopicStats(skill._id);
@@ -236,16 +180,14 @@ export async function GET() {
   }
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const recentDone = userSkillIds.length > 0
-    ? await GenerationQueue.find({
-        skillId: { $in: userSkillIds },
-        status: "done",
-        completedAt: { $gte: since },
-      })
-        .select("skillId")
-        .lean()
-        .exec()
-    : [];
+  const recentDone = await GenerationQueue.find({
+    status: "done",
+    completedAt: { $gte: since },
+    skillId: { $exists: true, $ne: null },
+  })
+    .select("skillId")
+    .lean()
+    .exec();
 
   const newSkillIds = new Set(
     recentDone
@@ -253,80 +195,21 @@ export async function GET() {
       .filter((id): id is string => Boolean(id)),
   );
 
-  async function getSkillOutlineStatus(skillId: Types.ObjectId): Promise<"pending" | "generating" | "ready" | "failed"> {
-    const queueItem = await GenerationQueue.findOne({
-      skillId,
-      targetType: "topic-outline",
-    }).lean().exec();
-
-    if (queueItem) {
-      if (queueItem.status === "failed") return "failed";
-      if (queueItem.status === "processing") return "generating";
-      if (queueItem.status === "queued") return "generating";
-    }
-
-    const topics = await Topic.find({ skillId }).lean().exec();
-    if (topics.length === 0) return "pending";
-
-    const hasGenerating = topics.some((t) => t.status === "generating" || t.status === "pending");
-    if (hasGenerating) return "generating";
-
-    return "ready";
-  }
-
-  async function getSkillCurrentSubtopic(skillId: Types.ObjectId): Promise<string | null> {
-    const topics = await Topic.find({ skillId }).sort({ order: 1 }).select("_id").lean().exec();
-    const topicIds = topics.map((t) => t._id);
-    if (topicIds.length === 0) return null;
-
-    const subtopics = await Subtopic.find({ topicId: { $in: topicIds } })
-      .sort({ order: 1 })
-      .lean()
-      .exec();
-    
-    if (subtopics.length === 0) return null;
-
-    const topicOrderMap = new Map(topics.map((t, idx) => [t._id.toString(), idx]));
-    subtopics.sort((a, b) => {
-      const orderA = topicOrderMap.get(a.topicId.toString()) ?? 0;
-      const orderB = topicOrderMap.get(b.topicId.toString()) ?? 0;
-      if (orderA !== orderB) return orderA - orderB;
-      return a.order - b.order;
-    });
-
-    const progressRows = await Progress.find({
-      skillId,
-      subtopicId: { $in: subtopics.map((s) => s._id) },
-    }).select("subtopicId status").lean().exec();
-
-    const progressMap = new Map(
-      progressRows.map((p) => [p.subtopicId!.toString(), p.status])
-    );
-
-    const inProgressSub = subtopics.find((s) => progressMap.get(s._id.toString()) === "in-progress");
-    if (inProgressSub) return inProgressSub.title;
-
-    const incompleteSub = subtopics.find((s) => progressMap.get(s._id.toString()) !== "completed");
-    if (incompleteSub) return incompleteSub.title;
-
-    return "Completed!";
-  }
+  const activeSkills = await Skill.find({ status: "active" })
+    .sort({ createdAt: -1 })
+    .lean()
+    .exec();
 
   const skills: DashboardSkill[] = [];
   for (const skill of activeSkills) {
     const stats = await skillSubtopicStats(skill._id);
-    const status = await getSkillOutlineStatus(skill._id);
-    const currentSubtopic = await getSkillCurrentSubtopic(skill._id);
     skills.push({
       id: skill._id.toString(),
       name: skill.name,
-      description: skill.description ?? null,
       percentComplete: stats.percentComplete,
       completedSubtopics: stats.completedSubtopics,
       totalSubtopics: stats.totalSubtopics,
       isNew: newSkillIds.has(skill._id.toString()),
-      status,
-      currentSubtopic,
     });
   }
 

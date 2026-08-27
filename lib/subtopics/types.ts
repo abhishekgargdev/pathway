@@ -8,13 +8,6 @@ export type SubtopicContentResponse = {
   };
   topic: { id: string; title: string };
   skill: { id: string; name: string };
-  progressStatus?: "not-started" | "in-progress" | "completed";
-  navigation?: {
-    prevSubtopicId: string | null;
-    prevSubtopicTitle: string | null;
-    nextSubtopicId: string | null;
-    nextSubtopicTitle: string | null;
-  } | null;
   content: {
     body: string;
     examples: Array<{

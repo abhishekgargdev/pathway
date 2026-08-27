@@ -2,19 +2,16 @@ export type SkillTreeNodeState =
   | "locked"
   | "available"
   | "in-progress"
-  | "completed"
-  | "generating"
-  | "failed";
+  | "completed";
 
 export type SkillTreeSubtopic = {
   id: string;
   title: string;
   order: number;
-  status: "pending" | "generating" | "ready" | "failed";
+  status: "pending" | "generating" | "ready";
   progressStatus: "not-started" | "in-progress" | "completed" | null;
   nodeState: SkillTreeNodeState;
   href: string | null;
-  queueItemId?: string | null;
 };
 
 export type SkillTreeTopic = {
@@ -52,7 +49,7 @@ export type SkillTreeResponse = {
     topicId: string | null;
     topicTitle: string | null;
     difficulty: "easy" | "medium" | "hard" | null;
-    status: "pending" | "generating" | "ready" | "failed";
+    status: "pending" | "generating" | "ready";
     href: string | null;
   }>;
 };

@@ -42,13 +42,11 @@ async function createSkill(name: string): Promise<CreateSkillResponse> {
 type AddSkillDialogProps = {
   existingSkillNames?: string[];
   triggerClassName?: string;
-  triggerText?: React.ReactNode;
 };
 
 export function AddSkillDialog({
   existingSkillNames = [],
   triggerClassName,
-  triggerText,
 }: AddSkillDialogProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -116,12 +114,8 @@ export function AddSkillDialog({
           triggerClassName,
         )}
       >
-        {triggerText ?? (
-          <>
-            <Plus className="size-4" aria-hidden />
-            Add Skill
-          </>
-        )}
+        <Plus className="size-4" aria-hidden />
+        Add skill
       </DialogTrigger>
 
       <DialogContent
@@ -154,10 +148,11 @@ export function AddSkillDialog({
           <form onSubmit={handleSubmit}>
             <DialogHeader className="gap-2 px-5 pt-5 pb-4 md:px-6">
               <DialogTitle className="font-heading text-lg font-bold text-[#EDEFF7]">
-                Add a Skill
+                Add a skill
               </DialogTitle>
               <DialogDescription className="text-sm text-[#8B93B0]">
-                What do you want to learn?
+                Name what you want to learn. Pathway generates a structured
+                path, then fills content over time.
               </DialogDescription>
             </DialogHeader>
 
@@ -173,7 +168,7 @@ export function AddSkillDialog({
                   id="skill-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter a skill, e.g. Python"
+                  placeholder="e.g. System Design"
                   autoComplete="off"
                   maxLength={120}
                   className={cn(
@@ -242,7 +237,7 @@ export function AddSkillDialog({
                   "disabled:cursor-not-allowed disabled:bg-[#2A2F4A] disabled:text-[#8B93B0] disabled:shadow-none",
                 )}
               >
-                Generate Learning Path
+                Generate path
               </button>
             </DialogFooter>
           </form>

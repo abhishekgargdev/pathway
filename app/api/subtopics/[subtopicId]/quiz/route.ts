@@ -14,7 +14,6 @@ import { QuizAttempt } from "@/models/QuizAttempt";
 import { QuizQuestion } from "@/models/QuizQuestion";
 import { Subtopic } from "@/models/Subtopic";
 import { Topic } from "@/models/Topic";
-import { Skill } from "@/models/Skill";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -31,7 +30,7 @@ const submitSchema = z.object({
 
 /** GET quiz questions (without answers) — triggers lazy quiz generation if needed. */
 export async function GET(_request: Request, context: RouteContext) {
-  const { session, error } = await requireSession();
+  const { error } = await requireSession();
   if (error) return error;
 
   const { subtopicId } = await context.params;
@@ -50,11 +49,6 @@ export async function GET(_request: Request, context: RouteContext) {
   const topic = await Topic.findById(subtopic.topicId).lean().exec();
   if (!topic) {
     return NextResponse.json({ error: "Topic not found" }, { status: 404 });
-  }
-
-  const skill = await Skill.findOne({ _id: topic.skillId, userId: session!.user.id }).lean().exec();
-  if (!skill) {
-    return NextResponse.json({ error: "Skill not found or unauthorized" }, { status: 404 });
   }
 
   let questions = await QuizQuestion.find({ subtopicId: id }).lean().exec();
@@ -99,7 +93,7 @@ export async function GET(_request: Request, context: RouteContext) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
-  const { session, error } = await requireSession();
+  const { error } = await requireSession();
   if (error) return error;
 
   const { subtopicId } = await context.params;
@@ -130,11 +124,6 @@ export async function POST(request: Request, context: RouteContext) {
   const topic = await Topic.findById(subtopic.topicId).lean().exec();
   if (!topic) {
     return NextResponse.json({ error: "Topic not found" }, { status: 404 });
-  }
-
-  const skill = await Skill.findOne({ _id: topic.skillId, userId: session!.user.id }).lean().exec();
-  if (!skill) {
-    return NextResponse.json({ error: "Skill not found or unauthorized" }, { status: 404 });
   }
 
   const questions = await QuizQuestion.find({ subtopicId: id }).lean().exec();

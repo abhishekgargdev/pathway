@@ -8,13 +8,11 @@ export interface ITestResult {
 }
 
 export interface ISubmission {
-  userId: Types.ObjectId;
   challengeId: Types.ObjectId;
   language: string;
   code: string;
   testResults?: ITestResult[];
   allPassed: boolean;
-  score?: number;
   submittedAt: Date;
 }
 
@@ -29,23 +27,15 @@ const TestResultSchema = new Schema<ITestResult>(
 );
 
 const SubmissionSchema = new Schema<ISubmission>({
-  userId: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-    index: true,
-  },
   challengeId: {
     type: Schema.Types.ObjectId,
     ref: "CodingChallenge",
     required: true,
-    index: true,
   },
   language: { type: String, required: true },
   code: { type: String, required: true },
   testResults: { type: [TestResultSchema] },
   allPassed: { type: Boolean, default: false },
-  score: { type: Number, default: 0 },
   submittedAt: { type: Date, default: Date.now },
 });
 

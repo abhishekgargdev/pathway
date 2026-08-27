@@ -36,13 +36,6 @@ export type ChallengeGetResponse = {
   } | null;
   hasPassingSubmission: boolean;
   hasAnalysis: boolean;
-  recentSubmissions?: Array<{
-    id: string;
-    language: string;
-    allPassed: boolean;
-    submittedAt: string;
-    score: number;
-  }>;
 };
 
 export type ChallengeSubmitResponse = {

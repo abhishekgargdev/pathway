@@ -7,7 +7,6 @@ import Link from "next/link";
 import {
   LearningPath,
   type PathNodeData,
-  type PathNodeState,
 } from "@/components/learning-path/learning-path";
 import { SkillPathSkeleton } from "@/components/skills/skill-path-skeleton";
 import type { SkillTreeResponse } from "@/lib/skills/tree-types";
@@ -36,9 +35,9 @@ export function SkillPathView({ skillId }: { skillId: string }) {
     return (
       <main className="mx-auto w-full max-w-3xl px-5 py-6 md:px-6 md:py-8 lg:px-8">
         <Link
-          href="/skills"
+          href="/dashboard"
           className="mb-5 inline-flex size-10 items-center justify-center rounded-xl border border-[#2A2F4A] bg-[#1F2440] text-[#EDEFF7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5EEAD4]/40"
-          aria-label="Back to My Skills"
+          aria-label="Back to dashboard"
         >
           <ArrowLeft className="size-4" />
         </Link>
@@ -60,32 +59,26 @@ export function SkillPathView({ skillId }: { skillId: string }) {
     );
   }
 
-  const nodes: PathNodeData[] = data.path.map((item) => {
-    let state = item.state;
-    if (state === "generating" || state === "failed") {
-      state = "locked";
-    }
-    return {
-      id: item.id,
-      label: item.label,
-      subtitle: item.subtitle,
-      state: state as PathNodeState,
-      href: item.href,
-    };
-  });
+  const nodes: PathNodeData[] = data.path.map((item) => ({
+    id: item.id,
+    label: item.label,
+    subtitle: item.subtitle,
+    state: item.state,
+    href: item.href,
+  }));
 
   return (
     <main className="mx-auto w-full max-w-3xl overflow-x-hidden px-5 py-6 md:px-6 md:py-8 lg:px-8">
       <header className="mb-5 flex items-start gap-3 md:mb-6">
         <Link
-          href="/skills"
+          href="/dashboard"
           className={cn(
             "inline-flex size-10 shrink-0 items-center justify-center rounded-xl",
             "border border-[#2A2F4A] bg-[#1F2440] text-[#EDEFF7]",
             "transition-colors hover:border-[#5EEAD4]/30 hover:text-[#5EEAD4]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5EEAD4]/40",
           )}
-          aria-label="Back to My Skills"
+          aria-label="Back to dashboard"
         >
           <ArrowLeft className="size-4" />
         </Link>

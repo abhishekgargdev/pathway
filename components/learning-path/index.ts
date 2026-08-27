@@ -1,9 +1,8 @@
-export * from "./LearningPath";
-export * from "./LearningPathNode";
-export * from "./TopicSection";
-export * from "./ProgressSummary";
 export {
+  LearningPath,
+  PathNode,
   MARKETING_PATH_PREVIEW_NODES,
+  type LearningPathProps,
   type PathNodeData,
   type PathNodeState,
 } from "./learning-path";

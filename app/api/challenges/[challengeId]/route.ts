@@ -18,7 +18,7 @@ export type { ChallengeGetResponse } from "@/lib/challenges/types";
 type RouteContext = { params: Promise<{ challengeId: string }> };
 
 export async function GET(_request: Request, context: RouteContext) {
-  const { session, error } = await requireSession();
+  const { error } = await requireSession();
   if (error) return error;
 
   const { challengeId } = await context.params;
@@ -32,11 +32,6 @@ export async function GET(_request: Request, context: RouteContext) {
   let challenge = await CodingChallenge.findById(id).lean().exec();
   if (!challenge) {
     return NextResponse.json({ error: "Challenge not found" }, { status: 404 });
-  }
-
-  const skill = await Skill.findOne({ _id: challenge.skillId, userId: session!.user.id }).lean().exec();
-  if (!skill) {
-    return NextResponse.json({ error: "Challenge not found or unauthorized" }, { status: 404 });
   }
 
   let responseStatus: ChallengeGetResponse["status"] = "ready";
@@ -66,20 +61,21 @@ export async function GET(_request: Request, context: RouteContext) {
           : "generating";
     }
   }
+
+  const skill = await Skill.findById(challenge.skillId).lean().exec();
   let topicTitle: string | null = null;
   if (challenge.topicId) {
     const topic = await Topic.findById(challenge.topicId).lean().exec();
     topicTitle = topic?.title ?? null;
   }
 
-  const latest = await Submission.findOne({ challengeId: id, userId: session!.user.id })
+  const latest = await Submission.findOne({ challengeId: id })
     .sort({ submittedAt: -1 })
     .lean()
     .exec();
 
   const passing = await Submission.findOne({
     challengeId: id,
-    userId: session!.user.id,
     allPassed: true,
   })
     .lean()
@@ -87,12 +83,6 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const analysis = await SolutionAnalysis.findOne({ challengeId: id })
     .select("_id")
-    .lean()
-    .exec();
-
-  const submissions = await Submission.find({ challengeId: id, userId: session!.user.id })
-    .sort({ submittedAt: -1 })
-    .limit(10)
     .lean()
     .exec();
 
@@ -137,18 +127,6 @@ export async function GET(_request: Request, context: RouteContext) {
       : null,
     hasPassingSubmission: Boolean(passing),
     hasAnalysis: Boolean(analysis),
-    recentSubmissions: submissions.map((s) => {
-      const total = s.testResults?.length ?? 0;
-      const passedCount = s.testResults?.filter((r) => r.passed).length ?? 0;
-      const score = total === 0 ? 0 : Math.round((passedCount / total) * 100);
-      return {
-        id: s._id.toString(),
-        language: s.language,
-        allPassed: s.allPassed,
-        submittedAt: s.submittedAt.toISOString(),
-        score,
-      };
-    }),
   };
 
   return NextResponse.json(body);

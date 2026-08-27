@@ -19,7 +19,7 @@ export type { SubtopicContentResponse } from "@/lib/subtopics/types";
 type RouteContext = { params: Promise<{ subtopicId: string }> };
 
 export async function GET(_request: Request, context: RouteContext) {
-  const { session, error } = await requireSession();
+  const { error } = await requireSession();
   if (error) return error;
 
   const { subtopicId } = await context.params;
@@ -40,7 +40,7 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Topic not found" }, { status: 404 });
   }
 
-  const skill = await Skill.findOne({ _id: topic.skillId, userId: session!.user.id }).lean().exec();
+  const skill = await Skill.findById(topic.skillId).lean().exec();
   if (!skill) {
     return NextResponse.json({ error: "Skill not found" }, { status: 404 });
   }
@@ -91,38 +91,6 @@ export async function GET(_request: Request, context: RouteContext) {
     .lean()
     .exec();
 
-  // Determine previous and next subtopics based on tree ordering
-  const siblingTopics = await Topic.find({ skillId: skill._id }).sort({ order: 1 }).lean().exec();
-  const siblingTopicIds = siblingTopics.map((t) => t._id);
-  const siblingSubtopics = siblingTopicIds.length
-    ? await Subtopic.find({ topicId: { $in: siblingTopicIds } }).sort({ order: 1 }).lean().exec()
-    : [];
-
-  const orderedSubtopics: typeof siblingSubtopics = [];
-  for (const t of siblingTopics) {
-    const tSubs = siblingSubtopics.filter((sub) => sub.topicId.toString() === t._id.toString());
-    orderedSubtopics.push(...tSubs);
-  }
-
-  const currentIndex = orderedSubtopics.findIndex(
-    (sub) => sub._id.toString() === id.toString()
-  );
-
-  const prevSub = currentIndex > 0 ? orderedSubtopics[currentIndex - 1] : null;
-  const nextSub =
-    currentIndex < orderedSubtopics.length - 1 && currentIndex !== -1
-      ? orderedSubtopics[currentIndex + 1]
-      : null;
-
-  const navigation = {
-    prevSubtopicId: prevSub ? prevSub._id.toString() : null,
-    prevSubtopicTitle: prevSub ? prevSub.title : null,
-    nextSubtopicId: nextSub ? nextSub._id.toString() : null,
-    nextSubtopicTitle: nextSub ? nextSub.title : null,
-  };
-
-  const progressStatus = existingProgress ? existingProgress.status : "in-progress";
-
   const body: SubtopicContentResponse = {
     status: responseStatus,
     message,
@@ -139,8 +107,6 @@ export async function GET(_request: Request, context: RouteContext) {
       id: skill._id.toString(),
       name: skill.name,
     },
-    progressStatus,
-    navigation,
     content: content
       ? {
           body: content.body,
