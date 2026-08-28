@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:check": "tsx scripts/check-db.ts",
+    "test:gemini": "tsx scripts/test-gemini.ts",
+    "test:runner": "tsx scripts/test-runner.ts",
+    "test:flow": "tsx scripts/test-walkthrough-flow.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
