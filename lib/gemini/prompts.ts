@@ -218,3 +218,15 @@ Rules:
 - Do not include a quiz or code dump longer than ~15 lines.
 - Keep explanation focused on the core idea only.`;
 }
+
+export function orderSkillsPrompt(skills: string[]): string {
+  const shape = `{
+  "skills": string[] — list of ordered skills from foundational to advanced
+}`;
+
+  return `${jsonOnlyPreamble(shape)}
+
+Analyze the dependencies, prerequisites, and logical learning hierarchy of these technical skills: ${JSON.stringify(skills)}.
+Order them from most foundational to most advanced, so that skills that are prerequisites or form a base for others are learned first.
+Return the list strictly in that ordered sequence.`;
+}

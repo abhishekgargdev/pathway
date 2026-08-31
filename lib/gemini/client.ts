@@ -13,6 +13,7 @@ import {
   simplifiedExplanationPrompt,
   solutionAnalysisPrompt,
   subtopicContentPrompt,
+  orderSkillsPrompt,
 } from "@/lib/gemini/prompts";
 import {
   codingChallengeSchema,
@@ -21,12 +22,14 @@ import {
   simplifiedExplanationSchema,
   solutionAnalysisSchema,
   subtopicContentSchema,
+  orderedSkillsSchema,
   type CodingChallengePayload,
   type QuizQuestions,
   type SimplifiedExplanation,
   type SkillOutline,
   type SolutionAnalysisPayload,
   type SubtopicContent,
+  type OrderedSkills,
 } from "@/lib/gemini/schemas";
 
 const KEY_COUNT = 6;
@@ -344,5 +347,14 @@ export async function generateSimplifiedExplanation(params: {
   return generateValidatedJson({
     prompt: simplifiedExplanationPrompt(params),
     schema: simplifiedExplanationSchema,
+  });
+}
+
+export async function orderSkills(
+  skills: string[],
+): Promise<GenerateJsonResult<OrderedSkills>> {
+  return generateValidatedJson({
+    prompt: orderSkillsPrompt(skills),
+    schema: orderedSkillsSchema,
   });
 }

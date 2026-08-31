@@ -1,6 +1,7 @@
 import { Schema, models, model, type Model, type Types } from "mongoose";
 
 export type GenerationTargetType =
+  | "skill-outline"
   | "topic-outline"
   | "subtopic-content"
   | "quiz"
@@ -29,6 +30,7 @@ const GenerationQueueSchema = new Schema<IGenerationQueue>({
   targetType: {
     type: String,
     enum: [
+      "skill-outline",
       "topic-outline",
       "subtopic-content",
       "quiz",

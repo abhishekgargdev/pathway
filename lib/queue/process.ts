@@ -6,6 +6,7 @@ import {
   generateCodingChallenge,
   generateQuizQuestions,
   generateSubtopicContent,
+  generateSkillOutline,
   readGeminiApiKey,
 } from "@/lib/gemini/client";
 import { AiUsageLog } from "@/models/AiUsageLog";
@@ -335,10 +336,95 @@ async function processTopicOutline(
   return { keyIndex: result.keyIndex };
 }
 
+async function processSkillOutline(
+  item: QueueDoc,
+): Promise<{ keyIndex: number }> {
+  if (!item.targetId) throw new Error("Queue item missing targetId");
+
+  const skill = await Skill.findById(item.targetId).exec();
+  if (!skill) {
+    throw new Error(`Skill not found: ${item.targetId.toString()}`);
+  }
+
+  // Update status to generating
+  await Skill.updateOne(
+    { _id: skill._id },
+    { $set: { generationStatus: "generating" } }
+  ).exec();
+
+  const result = await generateSkillOutline(skill.name);
+  const outline = result.data;
+
+  // Update skill description
+  await Skill.updateOne(
+    { _id: skill._id },
+    { $set: { description: outline.description } }
+  ).exec();
+
+  const queueItems: Array<{
+    targetType: "skill-outline" | "topic-outline" | "subtopic-content" | "quiz";
+    targetId: string;
+    skillId: string;
+    priority: number;
+  }> = [];
+
+  for (const topicInput of outline.topics) {
+    const topic = await Topic.create({
+      skillId: skill._id,
+      title: topicInput.title,
+      order: topicInput.order,
+      status: "pending",
+    });
+
+    for (const subInput of topicInput.subtopics) {
+      const subtopic = await Subtopic.create({
+        topicId: topic._id,
+        title: subInput.title,
+        order: subInput.order,
+        status: "pending",
+      });
+
+      const base = 1000 - (topicInput.order * 20 + subInput.order);
+      queueItems.push({
+        targetType: "subtopic-content",
+        targetId: subtopic._id.toString(),
+        skillId: skill._id.toString(),
+        priority: base,
+      });
+      queueItems.push({
+        targetType: "quiz",
+        targetId: subtopic._id.toString(),
+        skillId: skill._id.toString(),
+        priority: base - 5,
+      });
+    }
+
+    queueItems.push({
+      targetType: "topic-outline",
+      targetId: topic._id.toString(),
+      skillId: skill._id.toString(),
+      priority: 100 - topicInput.order,
+    });
+  }
+
+  const { enqueueGenerationMany } = await import("@/lib/queue/enqueue");
+  await enqueueGenerationMany(queueItems);
+
+  // Mark skill as ready
+  await Skill.updateOne(
+    { _id: skill._id },
+    { $set: { generationStatus: "ready" } }
+  ).exec();
+
+  return { keyIndex: result.keyIndex };
+}
+
 async function runTargetHandler(
   item: QueueDoc,
 ): Promise<{ keyIndex: number }> {
   switch (item.targetType) {
+    case "skill-outline":
+      return processSkillOutline(item);
     case "subtopic-content":
       return processSubtopicContent(item);
     case "quiz":
@@ -369,6 +455,13 @@ async function failQueueItem(
       },
     },
   ).exec();
+
+  if (permanent && item.targetType === "skill-outline" && item.targetId) {
+    await Skill.updateOne(
+      { _id: item.targetId },
+      { $set: { generationStatus: "failed" } }
+    ).exec();
+  }
 
   return {
     status: "failed",

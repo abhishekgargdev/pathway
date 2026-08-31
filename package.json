@@ -11,6 +11,7 @@
     "db:check": "tsx scripts/check-db.ts",
     "test:gemini": "tsx scripts/test-gemini.ts",
     "test:nvidia": "tsx scripts/test-nvidia.ts",
+    "test:bulk": "tsx scripts/test-bulk-skills.ts",
     "test:runner": "tsx scripts/test-runner.ts",
     "test:flow": "tsx scripts/test-walkthrough-flow.ts"
   },

@@ -8,6 +8,7 @@ export interface ISkill {
   description?: string;
   status: SkillStatus;
   source: SkillSource;
+  generationStatus?: "generating" | "ready" | "failed";
   createdAt: Date;
 }
 
@@ -23,6 +24,11 @@ const SkillSchema = new Schema<ISkill>({
     type: String,
     enum: ["user-added", "ai-suggested"],
     default: "user-added",
+  },
+  generationStatus: {
+    type: String,
+    enum: ["generating", "ready", "failed"],
+    default: "generating",
   },
   createdAt: { type: Date, default: Date.now },
 });

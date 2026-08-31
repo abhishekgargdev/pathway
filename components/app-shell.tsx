@@ -29,13 +29,13 @@ const navItems: NavItem[] = [
     match: (p) => p.startsWith("/dashboard"),
   },
   {
-    href: "/dashboard#skills",
+    href: "/skills",
     label: "Skills",
     icon: Network,
     match: (p) => p.startsWith("/skills"),
   },
   {
-    href: "/dashboard",
+    href: "/challenges",
     label: "Code",
     icon: Code2,
     match: (p) => p.startsWith("/challenges"),

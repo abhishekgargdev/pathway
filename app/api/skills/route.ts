@@ -6,12 +6,15 @@ import {
   AllKeysExhaustedError,
   GeminiValidationError,
   generateSkillOutline,
+  orderSkills,
 } from "@/lib/gemini/client";
 import { enqueueGenerationMany } from "@/lib/queue/enqueue";
 import type { CreateSkillResponse } from "@/lib/skills/types";
 import { Skill } from "@/models/Skill";
 import { Subtopic } from "@/models/Subtopic";
 import { Topic } from "@/models/Topic";
+import { Progress } from "@/models/Progress";
+import { GenerationQueue } from "@/models/GenerationQueue";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -21,6 +24,109 @@ export type { CreateSkillResponse } from "@/lib/skills/types";
 const createSkillSchema = z.object({
   name: z.string().trim().min(1, "Skill name is required").max(120),
 });
+
+export async function GET() {
+  const { session, error } = await requireSession();
+  if (error) return error;
+
+  await withDb();
+
+  const activeSkills = await Skill.find({ status: "active" })
+    .sort({ createdAt: -1 })
+    .lean()
+    .exec();
+
+  const skills = [];
+
+  for (const skill of activeSkills) {
+    const topics = await Topic.find({ skillId: skill._id }).select("_id").lean().exec();
+    const topicIds = topics.map((t) => t._id);
+
+    // Compute stats
+    let totalSubtopics = 0;
+    let completedSubtopics = 0;
+    let percentComplete = 0;
+
+    if (topicIds.length > 0) {
+      const subtopics = await Subtopic.find({ topicId: { $in: topicIds } }).select("_id").lean().exec();
+      totalSubtopics = subtopics.length;
+      if (totalSubtopics > 0) {
+        const subtopicIds = subtopics.map((s) => s._id);
+        completedSubtopics = await Progress.countDocuments({
+          skillId: skill._id,
+          subtopicId: { $in: subtopicIds },
+          status: "completed",
+        }).exec();
+        percentComplete = Math.round((completedSubtopics / totalSubtopics) * 100);
+      }
+    }
+
+    // Determine generationStatus dynamically
+    let generationStatus = skill.generationStatus || "ready";
+
+    // If it says ready but has no topics, it might still be generating or failed
+    if (generationStatus === "ready" && topics.length === 0) {
+      const hasOutlineJobs = await GenerationQueue.findOne({
+        skillId: skill._id,
+        targetType: "skill-outline",
+        status: { $in: ["queued", "processing"] },
+      }).lean().exec();
+      
+      const hasFailedOutlineJobs = await GenerationQueue.findOne({
+        skillId: skill._id,
+        targetType: "skill-outline",
+        status: "failed",
+      }).lean().exec();
+
+      if (hasOutlineJobs) {
+        generationStatus = "generating";
+      } else if (hasFailedOutlineJobs) {
+        generationStatus = "failed";
+      } else {
+        generationStatus = "generating"; // default if empty topics
+      }
+    }
+
+    // Find current subtopic (last visited or in-progress)
+    const currentProgress = await Progress.findOne({
+      skillId: skill._id,
+      status: "in-progress",
+    })
+      .sort({ lastVisitedAt: -1 })
+      .lean()
+      .exec();
+
+    let currentSubtopic = null;
+    if (currentProgress?.subtopicId) {
+      const sub = await Subtopic.findById(currentProgress.subtopicId).lean().exec();
+      if (sub) {
+        currentSubtopic = {
+          id: sub._id.toString(),
+          title: sub.title,
+          topicId: sub.topicId.toString(),
+        };
+      }
+    }
+
+    skills.push({
+      id: skill._id.toString(),
+      name: skill.name,
+      description: skill.description ?? null,
+      status: skill.status,
+      createdAt: skill.createdAt.toISOString(),
+      generationStatus,
+      progress: {
+        completedSubtopics,
+        totalSubtopics,
+        percentComplete,
+      },
+      currentSubtopic,
+      lastActivityAt: currentProgress?.lastVisitedAt?.toISOString() ?? null,
+    });
+  }
+
+  return NextResponse.json({ skills });
+}
 
 export async function POST(request: Request) {
   const { error } = await requireSession();
@@ -41,120 +147,73 @@ export async function POST(request: Request) {
     );
   }
 
-  const name = parsed.data.name;
-
+  const nameInput = parsed.data.name;
   await withDb();
 
-  let outlineResult;
-  try {
-    outlineResult = await generateSkillOutline(name);
-  } catch (err) {
-    if (err instanceof AllKeysExhaustedError) {
-      return NextResponse.json(
-        {
-          error:
-            "AI quota is exhausted for today. Try again tomorrow’s batch, or wait for lazy generation headroom.",
-          code: "ALL_KEYS_EXHAUSTED",
-        },
-        { status: 503 },
-      );
-    }
-    if (err instanceof GeminiValidationError) {
-      return NextResponse.json(
-        { error: "Outline generation returned invalid data. Please try again." },
-        { status: 502 },
-      );
-    }
-    const message = err instanceof Error ? err.message : "Outline generation failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+  // Split by comma
+  const rawNames = nameInput.split(",").map((n) => n.trim()).filter((n) => n.length > 0);
+  if (rawNames.length === 0) {
+    return NextResponse.json({ error: "At least one skill name is required" }, { status: 400 });
   }
 
-  const outline = outlineResult.data;
-
-  const skill = await Skill.create({
-    name,
-    description: outline.description,
-    status: "active",
-    source: "user-added",
-  });
-
-  const outlineTopics: CreateSkillResponse["outline"]["topics"] = [];
-  const queueItems: Array<{
-    targetType: "topic-outline" | "subtopic-content" | "quiz";
-    targetId: string;
-    skillId: string;
-    priority: number;
-  }> = [];
-
-  for (const topicInput of outline.topics) {
-    const topic = await Topic.create({
-      skillId: skill._id,
-      title: topicInput.title,
-      order: topicInput.order,
-      status: "pending",
-    });
-
-    const subtopicPayload: CreateSkillResponse["outline"]["topics"][number]["subtopics"] =
-      [];
-
-    for (const subInput of topicInput.subtopics) {
-      const subtopic = await Subtopic.create({
-        topicId: topic._id,
-        title: subInput.title,
-        order: subInput.order,
-        status: "pending",
-      });
-
-      subtopicPayload.push({
-        id: subtopic._id.toString(),
-        title: subtopic.title,
-        order: subtopic.order,
-      });
-
-      // Earlier path nodes get higher priority for cron drain.
-      const base = 1000 - (topicInput.order * 20 + subInput.order);
-      queueItems.push({
-        targetType: "subtopic-content",
-        targetId: subtopic._id.toString(),
-        skillId: skill._id.toString(),
-        priority: base,
-      });
-      queueItems.push({
-        targetType: "quiz",
-        targetId: subtopic._id.toString(),
-        skillId: skill._id.toString(),
-        priority: base - 5,
-      });
+  // 1. Order skills using AI if there are multiple
+  let orderedNames = rawNames;
+  if (rawNames.length > 1) {
+    try {
+      const orderResult = await orderSkills(rawNames);
+      orderedNames = orderResult.data.skills;
+    } catch (err) {
+      console.warn("AI ordering failed, falling back to original order:", err);
+      orderedNames = rawNames;
     }
+  }
 
-    queueItems.push({
-      targetType: "topic-outline",
-      targetId: topic._id.toString(),
-      skillId: skill._id.toString(),
-      priority: 100 - topicInput.order,
+  // 2. Create the skills and enqueue outline generation tasks
+  const createdSkills = [];
+  const queueItems = [];
+
+  for (let i = 0; i < orderedNames.length; i++) {
+    const sName = orderedNames[i]!;
+    
+    // Create the skill document in pending "generating" status
+    const skill = await Skill.create({
+      name: sName,
+      description: `Learning path for ${sName} (generating outline...)`,
+      status: "active",
+      source: "user-added",
+      generationStatus: "generating",
     });
 
-    outlineTopics.push({
-      id: topic._id.toString(),
-      title: topic.title,
-      order: topic.order,
-      subtopics: subtopicPayload,
+    createdSkills.push(skill);
+
+    // Enqueue "skill-outline" task. Foundational skills get higher priority so they generate first!
+    const priority = 2000 - i * 10;
+    queueItems.push({
+      targetType: "skill-outline" as const,
+      targetId: skill._id.toString(),
+      skillId: skill._id.toString(),
+      priority,
     });
   }
 
   const enqueued = await enqueueGenerationMany(queueItems);
 
+  // Return the first created skill metadata to match frontend expectations,
+  // or a list if they need it. The frontend expects:
+  // { skill: { id, name, description, status, source }, outline: { description, topics: [] }, enqueued }
+  const primarySkill = createdSkills[0]!;
+  
   const body: CreateSkillResponse = {
     skill: {
-      id: skill._id.toString(),
-      name: skill.name,
-      description: skill.description ?? outline.description,
-      status: skill.status,
-      source: skill.source,
+      id: primarySkill._id.toString(),
+      name: primarySkill.name,
+      description: primarySkill.description ?? "",
+      status: primarySkill.status,
+      source: primarySkill.source,
     },
     outline: {
-      description: outline.description,
-      topics: outlineTopics,
+      description: primarySkill.description || "",
+      topics: [], // Topics are generated asynchronously in the background
     },
     enqueued,
   };

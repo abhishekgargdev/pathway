@@ -170,3 +170,14 @@ export const simplifiedExplanationSchema = z.object({
 });
 
 export type SimplifiedExplanation = z.infer<typeof simplifiedExplanationSchema>;
+
+/** List of skills in logical learning order. */
+export const orderedSkillsSchema = z.object({
+  skills: z
+    .array(z.string().min(1))
+    .min(1)
+    .describe("List of skills in a logical learning order, from foundational to advanced"),
+});
+
+export type OrderedSkills = z.infer<typeof orderedSkillsSchema>;
+

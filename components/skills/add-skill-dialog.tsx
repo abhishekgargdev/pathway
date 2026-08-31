@@ -154,11 +154,10 @@ export function AddSkillDialog({
           <form onSubmit={handleSubmit}>
             <DialogHeader className="gap-2 px-5 pt-5 pb-4 md:px-6">
               <DialogTitle className="font-heading text-lg font-bold text-[#EDEFF7]">
-                Add a skill
+                Add skills
               </DialogTitle>
               <DialogDescription className="text-sm text-[#8B93B0]">
-                Name what you want to learn. Pathway generates a structured
-                path, then fills content over time.
+                Enter one or more skills (comma-separated). Pathway will analyze their learning dependencies, order them logically, and generate your learning paths in the background.
               </DialogDescription>
             </DialogHeader>
 
@@ -168,13 +167,13 @@ export function AddSkillDialog({
                   htmlFor="skill-name"
                   className="text-xs font-medium tracking-[0.5px] text-[#8B93B0] uppercase"
                 >
-                  Skill name
+                  Skill name(s)
                 </Label>
                 <Input
                   id="skill-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. System Design"
+                  placeholder="e.g. HTML, CSS, JavaScript, React"
                   autoComplete="off"
                   maxLength={120}
                   className={cn(
