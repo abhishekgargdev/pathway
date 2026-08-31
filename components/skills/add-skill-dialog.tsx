@@ -42,11 +42,13 @@ async function createSkill(name: string): Promise<CreateSkillResponse> {
 type AddSkillDialogProps = {
   existingSkillNames?: string[];
   triggerClassName?: string;
+  triggerText?: React.ReactNode;
 };
 
 export function AddSkillDialog({
   existingSkillNames = [],
   triggerClassName,
+  triggerText,
 }: AddSkillDialogProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -114,8 +116,12 @@ export function AddSkillDialog({
           triggerClassName,
         )}
       >
-        <Plus className="size-4" aria-hidden />
-        Add skill
+        {triggerText || (
+          <>
+            <Plus className="size-4" aria-hidden />
+            Add skill
+          </>
+        )}
       </DialogTrigger>
 
       <DialogContent

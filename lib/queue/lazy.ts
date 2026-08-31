@@ -1,4 +1,4 @@
-﻿import { Types } from "mongoose";
+import { Types } from "mongoose";
 
 import { connectDB } from "@/lib/db/connect";
 import {
@@ -37,6 +37,9 @@ async function loadContext(subtopicId: Types.ObjectId) {
 }
 
 async function hasQuota(): Promise<boolean> {
+  if (process.env.AI_PROVIDER?.trim().toLowerCase() === "nvidia" && process.env.NVIDIA_API_KEY) {
+    return true;
+  }
   try {
     const keys = await listAvailableKeys();
     return keys.length > 0;

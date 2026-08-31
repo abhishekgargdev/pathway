@@ -209,6 +209,13 @@ export async function generateValidatedJson<T>(params: {
   schema: ZodType<T>;
   model?: string;
 }): Promise<GenerateJsonResult<T>> {
+  const provider = process.env.AI_PROVIDER?.trim().toLowerCase();
+  const hasNvidiaKey = !!process.env.NVIDIA_API_KEY?.trim();
+  if (provider === "nvidia" || (hasNvidiaKey && !readGeminiApiKey(1))) {
+    const { generateNvidiaValidatedJson } = await import("@/lib/nvidia/client");
+    return generateNvidiaValidatedJson(params);
+  }
+
   const keys = await listAvailableKeys();
   const modelName = params.model ?? getGeminiModel();
   let lastError: Error | null = null;

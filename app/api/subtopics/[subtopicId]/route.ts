@@ -112,6 +112,7 @@ export async function GET(_request: Request, context: RouteContext) {
           body: content.body,
           examples: content.examples ?? [],
           simplifiedExplanation: content.simplifiedExplanation ?? null,
+          illustrationUrl: content.illustrationUrl ?? null,
         }
       : null,
     quiz: {

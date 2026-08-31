@@ -30,6 +30,30 @@ export function SubtopicContentView({ subtopicId }: { subtopicId: string }) {
     queryFn: () => fetchSubtopic(subtopicId),
   });
 
+  const [generatingIllustration, setGeneratingIllustration] = useState(false);
+  const [illustrationError, setIllustrationError] = useState<string | null>(null);
+
+  async function handleGenerateIllustration() {
+    setGeneratingIllustration(true);
+    setIllustrationError(null);
+    try {
+      const res = await fetch("/api/images/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subtopicId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body.error ?? "Failed to generate concept illustration");
+      }
+      await refetch();
+    } catch (err) {
+      setIllustrationError(err instanceof Error ? err.message : "Failed to generate illustration");
+    } finally {
+      setGeneratingIllustration(false);
+    }
+  }
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !data?.content) return;
@@ -141,38 +165,80 @@ export function SubtopicContentView({ subtopicId }: { subtopicId: string }) {
             </p>
           </div>
         ) : (
-          <article className="rounded-2xl border border-[#2A2F4A] bg-[#171B2E] p-4 shadow-[0_4px_16px_rgba(0,0,0,0.25)] md:p-5">
-            <MarkdownContent content={data.content.body} />
-
-            {data.content.examples.map((example, index) => (
-              <div key={`${example.title}-${index}`} className="mt-5">
-                {example.title ? (
-                  <h3 className="mb-2 font-heading text-base font-semibold text-[#EDEFF7]">
-                    {example.title}
-                  </h3>
-                ) : null}
-                {example.explanation ? (
-                  <p className="mb-3 text-[14px] leading-relaxed text-[#8B93B0]">
-                    {example.explanation}
+          <div className="flex flex-col gap-5">
+            {/* Concept Illustration Section */}
+            <div className="overflow-hidden rounded-2xl border border-[#2A2F4A] bg-[#171B2E] p-4 shadow-[0_4px_16px_rgba(0,0,0,0.25)] md:p-5">
+              <h2 className="font-heading text-xs font-bold tracking-[0.5px] text-[#8B93B0] uppercase mb-3">
+                Concept Illustration
+              </h2>
+              {data.content.illustrationUrl ? (
+                <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-[#2A2F4A] bg-[#0A0D1A]">
+                  <img
+                    src={data.content.illustrationUrl}
+                    alt={`Illustration for ${data.subtopic.title}`}
+                    className="h-full w-full object-cover object-center transition-all duration-300 hover:scale-[1.01]"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#2A2F4A] bg-[#1F2440]/20 py-8 px-4 text-center">
+                  <p className="text-sm text-[#8B93B0] mb-4">
+                    Visualize this concept with a dynamically generated AI illustration.
                   </p>
-                ) : null}
-                {example.code ? (
-                  <pre className="overflow-x-auto rounded-xl border border-[#2A2F4A] bg-[#1F2440] p-4 font-mono text-[12px] leading-relaxed text-[#EDEFF7]">
-                    <code>{example.code}</code>
-                  </pre>
-                ) : null}
-              </div>
-            ))}
+                  <button
+                    type="button"
+                    disabled={generatingIllustration}
+                    onClick={handleGenerateIllustration}
+                    className="inline-flex h-10 items-center justify-center rounded-xl bg-[#5EEAD4] px-5 text-sm font-semibold text-[#0E1220] shadow-[0_0_20px_rgba(94,234,212,0.25)] transition-all hover:scale-[1.01] hover:shadow-[0_0_28px_rgba(94,234,212,0.4)] disabled:opacity-60 disabled:scale-100 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {generatingIllustration ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                        Generating illustration...
+                      </>
+                    ) : (
+                      "Generate Concept Illustration"
+                    )}
+                  </button>
+                  {illustrationError && (
+                    <p className="mt-3 text-xs text-[#FB7185]">{illustrationError}</p>
+                  )}
+                </div>
+              )}
+            </div>
 
-            {data.content.simplifiedExplanation ? (
-              <div className="mt-6 rounded-xl border border-[#FBBF24]/25 bg-[#FBBF24]/5 p-4">
-                <p className="mb-2 text-[11px] font-semibold tracking-[0.5px] text-[#FBBF24] uppercase">
-                  Simpler explanation
-                </p>
-                <MarkdownContent content={data.content.simplifiedExplanation} />
-              </div>
-            ) : null}
-          </article>
+            <article className="rounded-2xl border border-[#2A2F4A] bg-[#171B2E] p-4 shadow-[0_4px_16px_rgba(0,0,0,0.25)] md:p-5">
+              <MarkdownContent content={data.content.body} />
+
+              {data.content.examples.map((example, index) => (
+                <div key={`${example.title}-${index}`} className="mt-5">
+                  {example.title ? (
+                    <h3 className="mb-2 font-heading text-base font-semibold text-[#EDEFF7]">
+                      {example.title}
+                    </h3>
+                  ) : null}
+                  {example.explanation ? (
+                    <p className="mb-3 text-[14px] leading-relaxed text-[#8B93B0]">
+                      {example.explanation}
+                    </p>
+                  ) : null}
+                  {example.code ? (
+                    <pre className="overflow-x-auto rounded-xl border border-[#2A2F4A] bg-[#1F2440] p-4 font-mono text-[12px] leading-relaxed text-[#EDEFF7]">
+                      <code>{example.code}</code>
+                    </pre>
+                  ) : null}
+                </div>
+              ))}
+
+              {data.content.simplifiedExplanation ? (
+                <div className="mt-6 rounded-xl border border-[#FBBF24]/25 bg-[#FBBF24]/5 p-4">
+                  <p className="mb-2 text-[11px] font-semibold tracking-[0.5px] text-[#FBBF24] uppercase">
+                    Simpler explanation
+                  </p>
+                  <MarkdownContent content={data.content.simplifiedExplanation} />
+                </div>
+              ) : null}
+            </article>
+          </div>
         )}
       </div>
 

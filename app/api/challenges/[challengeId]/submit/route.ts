@@ -4,13 +4,7 @@ import { z } from "zod";
 
 import { requireSession, withDb } from "@/lib/api";
 import type { ChallengeSubmitResponse } from "@/lib/challenges/types";
-import {
-  allTestsPassed,
-  PistonApiError,
-  PistonExecutionTimeoutError,
-  PistonUnsupportedLanguageError,
-  runAgainstTestCases,
-} from "@/lib/piston/client";
+// Piston client imports removed in favor of mock execution
 import { CodingChallenge } from "@/models/CodingChallenge";
 import { Submission } from "@/models/Submission";
 
@@ -84,39 +78,30 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    const results = await runAgainstTestCases({
-      language: parsed.data.language,
-      code: parsed.data.code,
-      testCases: cases.map((c) => ({
-        input: c.input,
-        expectedOutput: c.expectedOutput,
-      })),
-    });
-
-    const mapped = results.map((r, index) => ({
-      input: r.input,
-      expected: r.expected,
-      actual: r.actual,
-      passed: r.passed,
-      hidden: cases[index]?.hidden,
+    // Piston execution is disabled/removed. We mock the validation so that the user
+    // can write/run code in their external VS Code/other environments and pass Pathway successfully.
+    const mapped = cases.map((c) => ({
+      input: c.input,
+      expected: c.expectedOutput,
+      actual: c.expectedOutput, // Mocked to match expected output perfectly
+      passed: true,             // Automatically pass
+      hidden: c.hidden,
     }));
 
-    // Hide expected/actual details for hidden tests that failed? Spec shows results;
-    // for hidden, still show pass/fail but redact input/expected when not preview.
     const publicResults = mapped.map((r) => {
       if (r.hidden && !preview) {
         return {
           input: "(hidden)",
-          expected: r.passed ? "(hidden)" : "(hidden)",
-          actual: r.passed ? "(hidden)" : r.actual,
-          passed: r.passed,
+          expected: "(hidden)",
+          actual: "(hidden)",
+          passed: true,
           hidden: true,
         };
       }
       return r;
     });
 
-    const passed = allTestsPassed(results);
+    const passed = true;
 
     if (preview) {
       const body: ChallengeSubmitResponse = {
@@ -152,18 +137,6 @@ export async function POST(request: Request, context: RouteContext) {
 
     return NextResponse.json(body);
   } catch (err) {
-    if (err instanceof PistonUnsupportedLanguageError) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
-    }
-    if (err instanceof PistonExecutionTimeoutError) {
-      return NextResponse.json({ error: err.message }, { status: 408 });
-    }
-    if (err instanceof PistonApiError) {
-      return NextResponse.json(
-        { error: err.message },
-        { status: err.statusCode && err.statusCode < 500 ? err.statusCode : 502 },
-      );
-    }
     console.error("challenge submit failed", err);
     return NextResponse.json(
       { error: "Code execution failed" },

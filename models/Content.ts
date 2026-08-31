@@ -17,6 +17,8 @@ export interface IContent {
   /** Cached simpler re-explanation after two consecutive quiz fails */
   simplifiedExplanation?: string;
   simplifiedExplanationAt?: Date;
+  /** Dynamically generated concept illustration from NVIDIA Qwen-Image */
+  illustrationUrl?: string;
 }
 
 const ContentExampleSchema = new Schema<IContentExample>(
@@ -43,6 +45,7 @@ const ContentSchema = new Schema<IContent>({
   version: { type: Number, default: 1 },
   simplifiedExplanation: { type: String },
   simplifiedExplanationAt: { type: Date },
+  illustrationUrl: { type: String },
 });
 
 export const Content: Model<IContent> =

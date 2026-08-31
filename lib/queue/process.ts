@@ -61,6 +61,14 @@ export async function getRemainingQuotaToday(): Promise<{
   configuredKeys: number;
   perKey: Array<{ keyIndex: number; used: number; remaining: number }>;
 }> {
+  if (process.env.AI_PROVIDER?.trim().toLowerCase() === "nvidia" && process.env.NVIDIA_API_KEY) {
+    return {
+      remaining: 1000,
+      limitPerKey: 1000,
+      configuredKeys: 1,
+      perKey: [{ keyIndex: 1, used: 0, remaining: 1000 }],
+    };
+  }
   await connectDB();
   const date = todayDateString();
   const limitPerKey = dailyLimitPerKey();

@@ -17,6 +17,7 @@ export type SubtopicContentResponse = {
       language?: string;
     }>;
     simplifiedExplanation: string | null;
+    illustrationUrl?: string | null;
   } | null;
   quiz: {
     ready: boolean;
