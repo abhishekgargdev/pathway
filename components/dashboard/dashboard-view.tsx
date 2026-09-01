@@ -1,12 +1,16 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Edit3, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { StreakCounter } from "@/components/dashboard/streak-counter";
 import { AddSkillDialog } from "@/components/skills/add-skill-dialog";
+import { DeleteSkillDialog } from "@/components/skills/delete-skill-dialog";
+import { EditSkillDialog } from "@/components/skills/edit-skill-dialog";
+import { InstantGenerateButton } from "@/components/skills/instant-generate-button";
 import type { DashboardResponse } from "@/lib/dashboard/types";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +23,9 @@ async function fetchDashboard(): Promise<DashboardResponse> {
 }
 
 export function DashboardView() {
+  const [editingSkill, setEditingSkill] = useState<{ id: string; name: string; description?: string } | null>(null);
+  const [deletingSkill, setDeletingSkill] = useState<{ id: string; name: string } | null>(null);
+
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["dashboard"],
     queryFn: fetchDashboard,
@@ -187,42 +194,80 @@ export function DashboardView() {
           ) : (
             <div className="flex flex-col gap-3 md:gap-4">
               {skills.map((skill) => (
-                <Link
+                <div
                   key={skill.id}
-                  href={`/skills/${skill.id}`}
                   className={cn(
-                    "rounded-2xl border border-[#2A2F4A] bg-[#171B2E] p-4",
+                    "relative overflow-hidden rounded-2xl border border-[#2A2F4A] bg-[#171B2E] p-4",
                     "shadow-[0_4px_12px_rgba(0,0,0,0.2)]",
-                    "transition-transform active:scale-[0.98]",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5EEAD4]/40",
+                    "transition-all hover:border-[#2A2F4A]/80",
                   )}
                 >
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="min-w-0 flex-1 break-words font-heading text-sm font-medium text-[#EDEFF7]">
+                  <div className="flex items-start justify-between gap-3">
+                    <Link
+                      href={`/skills/${skill.id}`}
+                      className="min-w-0 flex-1 break-words font-heading text-sm font-medium text-[#EDEFF7] hover:text-[#5EEAD4] transition-colors"
+                    >
                       {skill.name}
-                    </span>
+                    </Link>
+                    <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setEditingSkill({
+                            id: skill.id,
+                            name: skill.name,
+                            description: skill.description ?? "",
+                          });
+                        }}
+                        className="inline-flex size-7 items-center justify-center rounded-lg border border-[#2A2F4A] bg-[#1F2440] text-[#8B93B0] transition-colors hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4]"
+                        title="Edit skill"
+                      >
+                        <Edit3 className="size-3.5" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDeletingSkill({ id: skill.id, name: skill.name });
+                        }}
+                        className="inline-flex size-7 items-center justify-center rounded-lg border border-[#FB7185]/30 bg-[#FB7185]/10 text-[#FB7185] transition-colors hover:bg-[#FB7185]/20"
+                        title="Delete skill"
+                      >
+                        <Trash2 className="size-3.5" aria-hidden />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 mb-3 flex flex-wrap items-center gap-2">
                     {skill.isNew ? (
-                      <span className="shrink-0 rounded-full bg-[#FBBF24]/15 px-2 py-0.5 text-[10px] font-bold tracking-[0.5px] text-[#FBBF24]">
+                      <span className="rounded-full bg-[#FBBF24]/15 px-2 py-0.5 text-[10px] font-bold tracking-[0.5px] text-[#FBBF24]">
                         NEW
                       </span>
                     ) : null}
+                    <InstantGenerateButton skillId={skill.id} variant="compact" />
                   </div>
-                  <div className="mb-2 h-1 overflow-hidden rounded-full bg-[#2A2F4A]">
-                    <div
-                      className="h-full rounded-full bg-[#5EEAD4] transition-[width] duration-500 ease-out"
-                      style={{ width: `${skill.percentComplete}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-[#8B93B0]">
-                      {skill.completedSubtopics} of {skill.totalSubtopics}{" "}
-                      subtopics
-                    </span>
-                    <span className="font-medium text-[#5EEAD4]">
-                      {skill.percentComplete}%
-                    </span>
-                  </div>
-                </Link>
+
+                  <Link href={`/skills/${skill.id}`} className="block">
+                    <div className="mb-2 h-1 overflow-hidden rounded-full bg-[#2A2F4A]">
+                      <div
+                        className="h-full rounded-full bg-[#5EEAD4] transition-[width] duration-500 ease-out"
+                        style={{ width: `${skill.percentComplete}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="text-[#8B93B0]">
+                        {skill.completedSubtopics} of {skill.totalSubtopics}{" "}
+                        subtopics
+                      </span>
+                      <span className="font-medium text-[#5EEAD4]">
+                        {skill.percentComplete}%
+                      </span>
+                    </div>
+                  </Link>
+                </div>
               ))}
             </div>
           )}
@@ -240,6 +285,29 @@ export function DashboardView() {
           Content Ops →
         </Link>
       </div>
+
+      {editingSkill ? (
+        <EditSkillDialog
+          skillId={editingSkill.id}
+          initialName={editingSkill.name}
+          initialDescription={editingSkill.description}
+          open={!!editingSkill}
+          onOpenChange={(open) => {
+            if (!open) setEditingSkill(null);
+          }}
+        />
+      ) : null}
+
+      {deletingSkill ? (
+        <DeleteSkillDialog
+          skillId={deletingSkill.id}
+          skillName={deletingSkill.name}
+          open={!!deletingSkill}
+          onOpenChange={(open) => {
+            if (!open) setDeletingSkill(null);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

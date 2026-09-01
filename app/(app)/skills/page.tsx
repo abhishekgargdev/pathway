@@ -6,14 +6,19 @@ import {
   AlertCircle,
   BookOpen,
   Calendar,
+  Edit3,
   Loader2,
   Plus,
   Search,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
 import { AddSkillDialog } from "@/components/skills/add-skill-dialog";
+import { DeleteSkillDialog } from "@/components/skills/delete-skill-dialog";
+import { EditSkillDialog } from "@/components/skills/edit-skill-dialog";
+import { InstantGenerateButton } from "@/components/skills/instant-generate-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -82,6 +87,8 @@ const cardVariants = {
 
 export default function MySkillsPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingSkill, setEditingSkill] = useState<{ id: string; name: string; description?: string } | null>(null);
+  const [deletingSkill, setDeletingSkill] = useState<{ id: string; name: string } | null>(null);
   const [, startTransition] = useTransition();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -275,27 +282,62 @@ export default function MySkillsPage() {
                     )}
                   >
                     <div>
-                      {/* Title & Status Badge */}
+                      {/* Top Header: Title & Edit/Delete Action Icons */}
                       <div className="flex items-start justify-between gap-3">
-                        <Link href={`/skills/${skill.id}`} className="focus-visible:outline-none group">
-                          <h2 className="font-heading text-lg font-bold tracking-tight text-[#EDEFF7] transition-colors group-hover:text-[#5EEAD4] focus-visible:underline">
+                        <Link href={`/skills/${skill.id}`} className="focus-visible:outline-none group min-w-0 flex-1">
+                          <h2 className="font-heading text-lg font-bold tracking-tight text-[#EDEFF7] transition-colors group-hover:text-[#5EEAD4] break-words">
                             {skill.name}
                           </h2>
                         </Link>
+                        <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setEditingSkill({
+                                id: skill.id,
+                                name: skill.name,
+                                description: skill.description ?? "",
+                              });
+                            }}
+                            className="inline-flex size-8 items-center justify-center rounded-xl border border-[#2A2F4A] bg-[#1F2440] text-[#8B93B0] transition-all hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] hover:bg-[#5EEAD4]/10"
+                            title="Edit skill"
+                          >
+                            <Edit3 className="size-4" aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDeletingSkill({ id: skill.id, name: skill.name });
+                            }}
+                            className="inline-flex size-8 items-center justify-center rounded-xl border border-[#FB7185]/30 bg-[#FB7185]/10 text-[#FB7185] transition-all hover:bg-[#FB7185]/20 hover:border-[#FB7185]/50"
+                            title="Delete skill"
+                          >
+                            <Trash2 className="size-4" aria-hidden />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Second Row: Status Badges & Instant Generate */}
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
                         {isGenerating && (
-                          <span className="inline-flex shrink-0 items-center rounded-full bg-[#5EEAD4]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#5EEAD4] animate-pulse">
+                          <span className="inline-flex items-center rounded-full bg-[#5EEAD4]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#5EEAD4] animate-pulse">
                             Generating
                           </span>
                         )}
                         {isFailed && (
-                          <span className="inline-flex shrink-0 items-center rounded-full bg-[#FB7185]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#FB7185]">
+                          <span className="inline-flex items-center rounded-full bg-[#FB7185]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#FB7185]">
                             Failed
                           </span>
                         )}
+                        <InstantGenerateButton skillId={skill.id} variant="compact" />
                       </div>
 
                       {/* Description */}
-                      <p className="mt-2 text-[13px] leading-relaxed text-[#8B93B0] line-clamp-2 min-h-[40px] break-words">
+                      <p className="mt-3 text-[13px] leading-relaxed text-[#8B93B0] line-clamp-2 min-h-[40px] break-words">
                         {skill.description || (isGenerating ? "Preparing your learning path layout..." : "No description provided.")}
                       </p>
                     </div>
@@ -413,6 +455,29 @@ export default function MySkillsPage() {
           )}
         </>
       )}
+
+      {editingSkill ? (
+        <EditSkillDialog
+          skillId={editingSkill.id}
+          initialName={editingSkill.name}
+          initialDescription={editingSkill.description}
+          open={!!editingSkill}
+          onOpenChange={(open) => {
+            if (!open) setEditingSkill(null);
+          }}
+        />
+      ) : null}
+
+      {deletingSkill ? (
+        <DeleteSkillDialog
+          skillId={deletingSkill.id}
+          skillName={deletingSkill.name}
+          open={!!deletingSkill}
+          onOpenChange={(open) => {
+            if (!open) setDeletingSkill(null);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

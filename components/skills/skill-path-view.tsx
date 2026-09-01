@@ -1,13 +1,17 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Edit3, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import {
   LearningPath,
   type PathNodeData,
 } from "@/components/learning-path/learning-path";
+import { DeleteSkillDialog } from "@/components/skills/delete-skill-dialog";
+import { EditSkillDialog } from "@/components/skills/edit-skill-dialog";
+import { InstantGenerateButton } from "@/components/skills/instant-generate-button";
 import { SkillPathSkeleton } from "@/components/skills/skill-path-skeleton";
 import type { SkillTreeResponse } from "@/lib/skills/tree-types";
 import { cn } from "@/lib/utils";
@@ -22,6 +26,9 @@ async function fetchSkillTree(skillId: string): Promise<SkillTreeResponse> {
 }
 
 export function SkillPathView({ skillId }: { skillId: string }) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["skill-tree", skillId],
     queryFn: () => fetchSkillTree(skillId),
@@ -83,9 +90,30 @@ export function SkillPathView({ skillId }: { skillId: string }) {
           <ArrowLeft className="size-4" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="font-heading text-lg font-bold tracking-tight break-words text-[#EDEFF7] md:text-xl">
-            {data.skill.name}
-          </h1>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h1 className="font-heading text-lg font-bold tracking-tight break-words text-[#EDEFF7] md:text-xl">
+              {data.skill.name}
+            </h1>
+            <div className="flex items-center gap-2">
+              <InstantGenerateButton skillId={skillId} variant="compact" />
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-[#2A2F4A] bg-[#1F2440] text-[#8B93B0] transition-colors hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4]"
+                title="Edit skill"
+              >
+                <Edit3 className="size-3.5" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteOpen(true)}
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-[#FB7185]/30 bg-[#FB7185]/10 text-[#FB7185] transition-colors hover:bg-[#FB7185]/20"
+                title="Delete skill"
+              >
+                <Trash2 className="size-3.5" aria-hidden />
+              </button>
+            </div>
+          </div>
           <p className="mt-1 text-xs text-[#8B93B0] md:text-[13px]">
             {data.stats.completedSubtopics} of {data.stats.totalSubtopics}{" "}
             subtopics complete · {data.stats.percentComplete}%
@@ -141,6 +169,22 @@ export function SkillPathView({ skillId }: { skillId: string }) {
           </div>
         </section>
       ) : null}
+
+      <EditSkillDialog
+        skillId={skillId}
+        initialName={data.skill.name}
+        initialDescription={data.skill.description ?? ""}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
+
+      <DeleteSkillDialog
+        skillId={skillId}
+        skillName={data.skill.name}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        redirectToDashboard={true}
+      />
     </main>
   );
 }

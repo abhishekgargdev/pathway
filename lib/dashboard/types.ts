@@ -13,6 +13,7 @@ export type DashboardContinueTarget = {
 export type DashboardSkill = {
   id: string;
   name: string;
+  description?: string | null;
   percentComplete: number;
   completedSubtopics: number;
   totalSubtopics: number;

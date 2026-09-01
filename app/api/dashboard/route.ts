@@ -206,6 +206,7 @@ export async function GET() {
     skills.push({
       id: skill._id.toString(),
       name: skill.name,
+      description: skill.description ?? null,
       percentComplete: stats.percentComplete,
       completedSubtopics: stats.completedSubtopics,
       totalSubtopics: stats.totalSubtopics,
