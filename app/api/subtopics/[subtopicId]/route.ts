@@ -79,7 +79,9 @@ export async function GET(_request: Request, context: RouteContext) {
       message = "Content will be ready in tomorrow's batch.";
     } else if (lazy.status === "error") {
       responseStatus = "error";
-      message = lazy.message;
+      console.warn(`[Subtopic Gen Error] ${lazy.message}`);
+      // Clean user-facing error message
+      message = "The AI service is experiencing high demand right now. Please try again in a moment.";
     } else {
       content = await Content.findOne({ subtopicId: id }).lean().exec();
       responseStatus = content ? "ready" : "generating";
