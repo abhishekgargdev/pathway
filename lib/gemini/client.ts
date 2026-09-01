@@ -203,22 +203,11 @@ export type GenerateJsonResult<T> = {
   rawText: string;
 };
 
-/**
- * Calls Gemini with the next available key, validates JSON against a Zod schema,
- * then increments AiUsageLog for that key. Retries other keys on transient 429/503.
- */
-export async function generateValidatedJson<T>(params: {
+async function tryGeminiGeneration<T>(params: {
   prompt: string;
   schema: ZodType<T>;
   model?: string;
 }): Promise<GenerateJsonResult<T>> {
-  const provider = process.env.AI_PROVIDER?.trim().toLowerCase();
-  const hasNvidiaKey = !!process.env.NVIDIA_API_KEY?.trim();
-  if (provider === "nvidia" || (hasNvidiaKey && !readGeminiApiKey(1))) {
-    const { generateNvidiaValidatedJson } = await import("@/lib/nvidia/client");
-    return generateNvidiaValidatedJson(params);
-  }
-
   const keys = await listAvailableKeys();
   const modelName = params.model ?? getGeminiModel();
   let lastError: Error | null = null;
@@ -280,6 +269,64 @@ export async function generateValidatedJson<T>(params: {
   }
 
   throw lastError ?? new AllKeysExhaustedError();
+}
+
+async function tryNvidiaGeneration<T>(params: {
+  prompt: string;
+  schema: ZodType<T>;
+  model?: string;
+}): Promise<GenerateJsonResult<T>> {
+  const { generateNvidiaValidatedJson } = await import("@/lib/nvidia/client");
+  return generateNvidiaValidatedJson(params);
+}
+
+/**
+ * Calls AI Provider (Gemini or NVIDIA) with automatic failover.
+ * If Primary provider's tokens or daily quota expire/fail, automatically switches to the secondary provider.
+ */
+export async function generateValidatedJson<T>(params: {
+  prompt: string;
+  schema: ZodType<T>;
+  model?: string;
+}): Promise<GenerateJsonResult<T>> {
+  const provider = process.env.AI_PROVIDER?.trim().toLowerCase();
+  const hasNvidiaKey = !!process.env.NVIDIA_API_KEY?.trim();
+  const preferNvidia = provider === "nvidia";
+
+  if (preferNvidia) {
+    // NVIDIA is primary
+    try {
+      return await tryNvidiaGeneration(params);
+    } catch (nvidiaError) {
+      const msg = nvidiaError instanceof Error ? nvidiaError.message : String(nvidiaError);
+      console.warn(`[AI Failover] NVIDIA API call failed (${msg}). Automatically switching to Gemini...`);
+      try {
+        return await tryGeminiGeneration(params);
+      } catch (geminiError) {
+        throw new Error(
+          `Both AI Providers failed! NVIDIA error: ${msg}. Gemini error: ${geminiError instanceof Error ? geminiError.message : String(geminiError)}`,
+        );
+      }
+    }
+  }
+
+  // Gemini is primary (default)
+  try {
+    return await tryGeminiGeneration(params);
+  } catch (geminiError) {
+    const msg = geminiError instanceof Error ? geminiError.message : String(geminiError);
+    if (hasNvidiaKey) {
+      console.warn(`[AI Failover] Gemini API failed or keys exhausted (${msg}). Automatically switching to NVIDIA...`);
+      try {
+        return await tryNvidiaGeneration(params);
+      } catch (nvidiaError) {
+        throw new Error(
+          `Both AI Providers failed! Gemini error: ${msg}. NVIDIA error: ${nvidiaError instanceof Error ? nvidiaError.message : String(nvidiaError)}`,
+        );
+      }
+    }
+    throw geminiError;
+  }
 }
 
 /** Skill create — one small outline call. */
