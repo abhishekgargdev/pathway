@@ -8,6 +8,7 @@ import { useState } from "react";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { StreakCounter } from "@/components/dashboard/streak-counter";
 import { AddSkillDialog } from "@/components/skills/add-skill-dialog";
+import { AiSkillSuggestions } from "@/components/skills/ai-skill-suggestions";
 import { DeleteSkillDialog } from "@/components/skills/delete-skill-dialog";
 import { EditSkillDialog } from "@/components/skills/edit-skill-dialog";
 import { InstantGenerateButton } from "@/components/skills/instant-generate-button";
@@ -165,6 +166,9 @@ export function DashboardView() {
             </p>
           </section>
         )}
+
+        {/* AI Recommended Skills Window */}
+        <AiSkillSuggestions className="mt-6 mb-8" />
 
         {/* Active skills */}
         <section id="skills">

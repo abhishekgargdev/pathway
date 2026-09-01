@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 
 import { AddSkillDialog } from "@/components/skills/add-skill-dialog";
+import { AiSkillSuggestions } from "@/components/skills/ai-skill-suggestions";
 import { DeleteSkillDialog } from "@/components/skills/delete-skill-dialog";
 import { EditSkillDialog } from "@/components/skills/edit-skill-dialog";
 import { InstantGenerateButton } from "@/components/skills/instant-generate-button";
@@ -210,6 +211,9 @@ export default function MySkillsPage() {
           />
         )}
       </div>
+
+      {/* AI Recommended Skills Window */}
+      <AiSkillSuggestions className="mt-8 mb-6" />
 
       {skills.length === 0 ? (
         /* Empty State */
