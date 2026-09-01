@@ -47,29 +47,29 @@ export function subtopicContentPrompt(params: {
   subtopicTitle: string;
 }): string {
   const shape = `{
-  "body": string — full lesson in markdown (headings, lists, short paragraphs),
+  "body": string — comprehensive lesson formatted in GitHub Flavored Markdown (use ## sections, ### sub-sections, **bold key terms**, bullet points, and inline code),
   "examples": [
     {
       "title": string,
-      "explanation": string — what the example teaches,
-      "code": string — complete runnable snippet when possible,
-      "language": string — e.g. "javascript", "python", "typescript"
+      "explanation": string — clear explanation of the example,
+      "code": string — complete runnable code snippet,
+      "language": string — e.g. "javascript", "python", "typescript", "java", "bash"
     }
   ]
 }`;
 
   return `${jsonOnlyPreamble(shape)}
 
-Write lesson content for:
+Write a high-quality lesson for:
 - Skill: "${params.skillName}"
 - Topic: "${params.topicTitle}"
 - Subtopic: "${params.subtopicTitle}"
 
 Rules:
-- body should teach clearly for an intermediate learner; use markdown.
-- Include 1–3 examples with real code (not pseudocode unless the skill is language-agnostic).
-- Prefer one primary language consistent with the skill name when obvious.
-- Do not invent unrelated topics; stay on this subtopic.`;
+- Write "body" strictly in Markdown with clear section headers (## Overview, ## Core Concepts, ## Key Takeaways), bullet lists (-), and bold key terms (**term**).
+- Include 1–3 practical examples with clean code snippets and step-by-step explanations.
+- Ensure all newlines inside JSON string fields are properly escaped as \\n so the JSON parses cleanly.
+- Keep content engaging, easy to read, and educational for an eager learner.`;
 }
 
 export function quizQuestionsPrompt(params: {

@@ -170,20 +170,46 @@ function extractText(result: GenerateContentResult): string {
 }
 
 function parseJsonPayload(rawText: string): unknown {
-  const trimmed = rawText.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenced?.[1]) {
-      return JSON.parse(fenced[1].trim());
-    }
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
+  let cleaned = rawText.trim();
+
+  // Extract from Markdown code fence if wrapped
+  const fenced = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    cleaned = fenced[1].trim();
+  } else {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
     if (start !== -1 && end > start) {
-      return JSON.parse(trimmed.slice(start, end + 1));
+      cleaned = cleaned.slice(start, end + 1);
     }
-    throw new Error("Gemini response was not valid JSON");
+  }
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (initialErr) {
+    // LLM outputs sometimes contain raw literal unescaped newlines/tabs inside JSON string values.
+    // Replace unescaped control characters inside quotes.
+    try {
+      const fixed = cleaned.replace(/"((?:[^"\\]|\\.)*)"/g, (match) => {
+        return match
+          .replace(/\n/g, "\\n")
+          .replace(/\r/g, "\\r")
+          .replace(/\t/g, "\\t");
+      });
+      return JSON.parse(fixed);
+    } catch {
+      try {
+        const sanitized = cleaned.replace(/[\u0000-\u001F]+/g, (match) => {
+          if (match === "\n") return "\\n";
+          if (match === "\r") return "\\r";
+          if (match === "\t") return "\\t";
+          return "";
+        });
+        return JSON.parse(sanitized);
+      } catch {
+        throw initialErr;
+      }
+    }
   }
 }
 
