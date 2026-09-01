@@ -78,7 +78,7 @@ export async function POST(_request: Request, context: RouteContext) {
     topics = await Topic.find({ skillId: sId }).sort({ order: 1 }).lean().exec();
   }
 
-  // 2. Process all pending queue items for this skill
+  // 2. Process all pending queue items for this skill in concurrent chunks (3 at a time)
   const queueItems = await GenerationQueue.find({
     skillId: sId,
     status: { $in: ["queued", "failed"] },
@@ -86,33 +86,41 @@ export async function POST(_request: Request, context: RouteContext) {
     .sort({ priority: -1 })
     .exec();
 
-  for (const item of queueItems) {
-    try {
-      const res = await processQueueItem(item._id);
-      if (res.status === "done") {
+  const CONCURRENCY = 3;
+  for (let i = 0; i < queueItems.length; i += CONCURRENCY) {
+    const chunk = queueItems.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      chunk.map((item) => processQueueItem(item._id)),
+    );
+
+    for (const res of results) {
+      if (res.status === "fulfilled" && res.value.status === "done") {
         processedCount++;
       }
-    } catch (err) {
-      console.warn(`Instant generation error for queue item ${item._id.toString()}:`, err);
     }
   }
 
-  // 3. For any subtopics still missing content or quizzes, generate directly for first topic
+  // 3. For any subtopics still missing content or quizzes, generate directly
   const topicIds = topics.map((t) => t._id);
   const subtopics = await Subtopic.find({ topicId: { $in: topicIds } }).lean().exec();
 
-  for (const sub of subtopics) {
-    const hasContent = await Content.exists({ subtopicId: sub._id });
-    if (!hasContent) {
-      const res = await generateSubtopicContentDirect(sub._id);
-      if (res.status === "ready") processedCount++;
-    }
+  for (let i = 0; i < subtopics.length; i += CONCURRENCY) {
+    const chunk = subtopics.slice(i, i + CONCURRENCY);
+    await Promise.allSettled(
+      chunk.map(async (sub) => {
+        const hasContent = await Content.exists({ subtopicId: sub._id });
+        if (!hasContent) {
+          const res = await generateSubtopicContentDirect(sub._id);
+          if (res.status === "ready") processedCount++;
+        }
 
-    const hasQuiz = await QuizQuestion.exists({ subtopicId: sub._id });
-    if (!hasQuiz) {
-      const res = await lazyEnsureQuizQuestions(sub._id.toString());
-      if (res.status === "ready") processedCount++;
-    }
+        const hasQuiz = await QuizQuestion.exists({ subtopicId: sub._id });
+        if (!hasQuiz) {
+          const res = await lazyEnsureQuizQuestions(sub._id.toString());
+          if (res.status === "ready") processedCount++;
+        }
+      }),
+    );
   }
 
   // Mark skill as ready

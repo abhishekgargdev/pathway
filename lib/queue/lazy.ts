@@ -77,7 +77,7 @@ export async function lazyEnsureSubtopicContent(
   let queueItem = await GenerationQueue.findOne({
     targetType: "subtopic-content",
     targetId: id,
-    status: { $in: ["queued", "failed"] },
+    status: { $in: ["queued", "processing", "failed"] },
     attempts: { $lt: 3 },
   }).exec();
 
@@ -86,6 +86,17 @@ export async function lazyEnsureSubtopicContent(
       { _id: queueItem._id },
       { $set: { status: "queued" } },
     ).exec();
+    queueItem.status = "queued";
+  }
+
+  if (queueItem && queueItem.status === "processing") {
+    // Item is actively being processed by background worker or parallel request.
+    // Wait briefly up to 3s to see if content lands cleanly.
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const content = await Content.findOne({ subtopicId: id }).lean().exec();
+      if (content) return { status: "ready" };
+    }
   }
 
   if (!queueItem) {
@@ -151,7 +162,7 @@ export async function lazyEnsureQuizQuestions(
   let queueItem = await GenerationQueue.findOne({
     targetType: "quiz",
     targetId: id,
-    status: { $in: ["queued", "failed"] },
+    status: { $in: ["queued", "processing", "failed"] },
     attempts: { $lt: 3 },
   }).exec();
 
@@ -160,6 +171,15 @@ export async function lazyEnsureQuizQuestions(
       { _id: queueItem._id },
       { $set: { status: "queued" } },
     ).exec();
+    queueItem.status = "queued";
+  }
+
+  if (queueItem && queueItem.status === "processing") {
+    for (let i = 0; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const count = await QuizQuestion.countDocuments({ subtopicId: id }).exec();
+      if (count > 0) return { status: "ready" };
+    }
   }
 
   if (!queueItem) {

@@ -8,10 +8,31 @@ import { toast } from "sonner";
 import type { SkillSuggestionsResponse, SkillSuggestionItem } from "@/app/api/skills/suggestions/route";
 import { cn } from "@/lib/utils";
 
-export function AiSkillSuggestions({ className }: { className?: string }) {
+export function AiSkillSuggestions({
+  className,
+  existingSkillNames = [],
+}: {
+  className?: string;
+  existingSkillNames?: string[];
+}) {
   const queryClient = useQueryClient();
   const [addingSkillName, setAddingSkillName] = useState<string | null>(null);
   const [addedSkills, setAddedSkills] = useState<Set<string>>(new Set());
+
+  // Fetch current user skills from react-query cache if available
+  const dashboardCache = queryClient.getQueryData<{ skills?: Array<{ name: string }> }>(["dashboard"]);
+  const skillsCache = queryClient.getQueryData<{ skills?: Array<{ name: string }> }>(["skills"]);
+
+  const allUserSkillNames = [
+    ...existingSkillNames,
+    ...(dashboardCache?.skills?.map((s) => s.name) ?? []),
+    ...(skillsCache?.skills?.map((s) => s.name) ?? []),
+    ...Array.from(addedSkills),
+  ];
+
+  const userSkillSet = new Set(
+    allUserSkillNames.map((n) => n.toLowerCase().trim()),
+  );
 
   const { data, isLoading, isRefetching, refetch, isError } = useQuery<SkillSuggestionsResponse>({
     queryKey: ["skill-suggestions"],
@@ -31,7 +52,7 @@ export function AiSkillSuggestions({ className }: { className?: string }) {
       const res = await fetch("/api/skills", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ names: skillName }),
+        body: JSON.stringify({ name: skillName }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -115,7 +136,9 @@ export function AiSkillSuggestions({ className }: { className?: string }) {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 pt-2">
           {data.suggestions.map((item: SkillSuggestionItem) => {
             const isAdding = addingSkillName === item.name;
-            const isAdded = addedSkills.has(item.name);
+            const isAdded =
+              addedSkills.has(item.name) ||
+              userSkillSet.has(item.name.toLowerCase().trim());
 
             return (
               <div

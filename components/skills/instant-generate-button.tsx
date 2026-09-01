@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 
 type InstantGenerateButtonProps = {
   skillId: string;
+  generationStatus?: "generating" | "ready" | "failed" | string;
+  showIfReady?: boolean;
   className?: string;
   variant?: "primary" | "secondary" | "compact";
   onSuccess?: () => void;
@@ -32,6 +34,8 @@ async function triggerInstantGeneration(skillId: string) {
 
 export function InstantGenerateButton({
   skillId,
+  generationStatus,
+  showIfReady = false,
   className,
   variant = "primary",
   onSuccess,
@@ -47,6 +51,7 @@ export function InstantGenerateButton({
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["skills"] }),
         queryClient.invalidateQueries({ queryKey: ["skill-tree", skillId] }),
       ]);
       if (onSuccess) onSuccess();
@@ -57,6 +62,11 @@ export function InstantGenerateButton({
   });
 
   const isGenerating = mutation.isPending;
+
+  // Hide button if skill is already ready and showIfReady is false
+  if (generationStatus === "ready" && !showIfReady && !isGenerating) {
+    return null;
+  }
 
   function handleClick(e: React.MouseEvent) {
     e.preventDefault();

@@ -95,7 +95,11 @@ export function SkillPathView({ skillId }: { skillId: string }) {
               {data.skill.name}
             </h1>
             <div className="flex items-center gap-2">
-              <InstantGenerateButton skillId={skillId} variant="compact" />
+              <InstantGenerateButton
+                skillId={skillId}
+                generationStatus={data.skill.generationStatus}
+                variant="compact"
+              />
               <button
                 type="button"
                 onClick={() => setEditOpen(true)}

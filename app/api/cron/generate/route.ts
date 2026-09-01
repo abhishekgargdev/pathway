@@ -58,27 +58,26 @@ export async function GET(request: Request) {
   let skipped = 0;
   const errors: Array<{ queueItemId: string; error: string }> = [];
 
-  for (const item of items) {
-    const result = await processQueueItem(item._id);
+  const CONCURRENCY = 3;
+  let isQuotaExhausted = false;
 
-    if (result.status === "done") {
-      processed += 1;
-      continue;
+  for (let i = 0; i < items.length && !isQuotaExhausted; i += CONCURRENCY) {
+    const chunk = items.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(chunk.map((item) => processQueueItem(item._id)));
+
+    for (const result of results) {
+      if (result.status === "done") {
+        processed += 1;
+      } else if (result.status === "failed") {
+        failed += 1;
+        errors.push({ queueItemId: result.queueItemId, error: result.error });
+      } else if (result.status === "exhausted") {
+        exhausted += 1;
+        isQuotaExhausted = true;
+      } else {
+        skipped += 1;
+      }
     }
-
-    if (result.status === "failed") {
-      failed += 1;
-      errors.push({ queueItemId: result.queueItemId, error: result.error });
-      continue;
-    }
-
-    if (result.status === "exhausted") {
-      exhausted += 1;
-      // Stop the batch — further Gemini calls will fail the same way today.
-      break;
-    }
-
-    skipped += 1;
   }
 
   const quotaAfter = await getRemainingQuotaToday();

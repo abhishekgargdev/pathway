@@ -292,7 +292,7 @@ export default function MySkillsPage() {
       </div>
 
       {/* AI Recommended Skills Window */}
-      <AiSkillSuggestions className="mt-8 mb-6" />
+      <AiSkillSuggestions className="mt-8 mb-6" existingSkillNames={existingNames} />
 
       {skills.length === 0 ? (
         /* Empty State */
@@ -473,7 +473,11 @@ export default function MySkillsPage() {
                             Failed
                           </span>
                         )}
-                        <InstantGenerateButton skillId={skill.id} variant="compact" />
+                        <InstantGenerateButton
+                          skillId={skill.id}
+                          generationStatus={skill.generationStatus}
+                          variant="compact"
+                        />
                       </div>
 
                       {/* Description */}
@@ -609,11 +613,15 @@ export default function MySkillsPage() {
 
           {/* Pagination Controls Footer */}
           {totalItems > 0 && (
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-[#2A2F4A] pt-6">
-              <p className="text-xs font-medium text-[#8B93B0]">
-                Showing <span className="text-[#EDEFF7] font-semibold">{startItem}–{endItem}</span> of{" "}
-                <span className="text-[#EDEFF7] font-semibold">{totalItems}</span> skills
-              </p>
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-[#2A2F4A] bg-[#171B2E]/90 p-4 shadow-xl backdrop-blur-md">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-[#1F2440] px-3 py-1 text-xs font-semibold text-[#8B93B0] border border-[#2A2F4A]">
+                  Showing <strong className="ml-1 text-[#EDEFF7]">{startItem}–{endItem}</strong>
+                </span>
+                <span className="text-xs text-[#8B93B0]">
+                  of <strong className="text-[#EDEFF7]">{totalItems}</strong> skills
+                </span>
+              </div>
 
               {totalPages > 1 && (
                 <div className="flex items-center gap-2">
@@ -621,13 +629,13 @@ export default function MySkillsPage() {
                     type="button"
                     disabled={validCurrentPage === 1}
                     onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                    className="inline-flex h-9 items-center gap-1 rounded-xl border border-[#2A2F4A] bg-[#171B2E] px-3 text-xs font-semibold text-[#EDEFF7] hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] disabled:opacity-40 disabled:hover:border-[#2A2F4A] disabled:hover:text-[#EDEFF7]"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#2A2F4A] bg-[#1F2440] px-3 text-xs font-semibold text-[#EDEFF7] transition-all hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] disabled:opacity-30 disabled:hover:border-[#2A2F4A] disabled:hover:text-[#EDEFF7]"
                   >
                     <ChevronLeft className="size-4" />
                     <span>Prev</span>
                   </button>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                       <button
                         key={page}
@@ -636,8 +644,8 @@ export default function MySkillsPage() {
                         className={cn(
                           "size-9 rounded-xl text-xs font-semibold transition-all border",
                           page === validCurrentPage
-                            ? "border-[#5EEAD4] bg-[#5EEAD4]/15 text-[#5EEAD4] font-bold shadow-[0_0_12px_rgba(94,234,212,0.2)]"
-                            : "border-[#2A2F4A] bg-[#171B2E] text-[#8B93B0] hover:text-[#EDEFF7] hover:border-[#2A2F4A]/80",
+                            ? "border-[#5EEAD4] bg-[#5EEAD4]/15 text-[#5EEAD4] font-bold shadow-[0_0_12px_rgba(94,234,212,0.25)]"
+                            : "border-[#2A2F4A] bg-[#1F2440]/50 text-[#8B93B0] hover:text-[#EDEFF7] hover:border-[#2A2F4A]/80",
                         )}
                       >
                         {page}
@@ -649,7 +657,7 @@ export default function MySkillsPage() {
                     type="button"
                     disabled={validCurrentPage === totalPages}
                     onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                    className="inline-flex h-9 items-center gap-1 rounded-xl border border-[#2A2F4A] bg-[#171B2E] px-3 text-xs font-semibold text-[#EDEFF7] hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] disabled:opacity-40 disabled:hover:border-[#2A2F4A] disabled:hover:text-[#EDEFF7]"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#2A2F4A] bg-[#1F2440] px-3 text-xs font-semibold text-[#EDEFF7] transition-all hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] disabled:opacity-30 disabled:hover:border-[#2A2F4A] disabled:hover:text-[#EDEFF7]"
                   >
                     <span>Next</span>
                     <ChevronRight className="size-4" />

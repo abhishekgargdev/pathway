@@ -27,6 +27,7 @@ export type SkillTreeResponse = {
     id: string;
     name: string;
     description: string | null;
+    generationStatus?: "generating" | "ready" | "failed";
   };
   stats: {
     completedSubtopics: number;

@@ -211,6 +211,7 @@ export async function GET() {
       completedSubtopics: stats.completedSubtopics,
       totalSubtopics: stats.totalSubtopics,
       isNew: newSkillIds.has(skill._id.toString()),
+      generationStatus: skill.generationStatus || "ready",
     });
   }
 

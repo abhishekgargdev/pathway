@@ -197,6 +197,7 @@ export async function GET(_request: Request, context: RouteContext) {
       id: skill._id.toString(),
       name: skill.name,
       description: skill.description ?? null,
+      generationStatus: skill.generationStatus || "ready",
     },
     stats: {
       completedSubtopics,

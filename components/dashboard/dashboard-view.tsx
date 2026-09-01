@@ -227,7 +227,7 @@ export function DashboardView() {
         )}
 
         {/* AI Recommended Skills Window */}
-        <AiSkillSuggestions className="mt-6 mb-8" />
+        <AiSkillSuggestions className="mt-6 mb-8" existingSkillNames={skills.map((s) => s.name)} />
 
         {/* Active skills */}
         <section id="skills">
@@ -377,7 +377,11 @@ export function DashboardView() {
                           NEW
                         </span>
                       ) : null}
-                      <InstantGenerateButton skillId={skill.id} variant="compact" />
+                      <InstantGenerateButton
+                        skillId={skill.id}
+                        generationStatus={skill.generationStatus}
+                        variant="compact"
+                      />
                     </div>
 
                     <Link href={`/skills/${skill.id}`} className="block">
@@ -410,31 +414,53 @@ export function DashboardView() {
 
               {/* Dashboard Pagination Footer */}
               {totalItems > 0 && (
-                <div className="flex items-center justify-between pt-2">
-                  <p className="text-[11px] text-[#8B93B0]">
-                    Showing <span className="text-[#EDEFF7] font-semibold">{startItem}–{endItem}</span> of{" "}
-                    <span className="text-[#EDEFF7] font-semibold">{totalItems}</span>
-                  </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-[#2A2F4A] bg-[#171B2E]/80 p-3.5 mt-3 shadow-md backdrop-blur-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center rounded-full bg-[#1F2440] px-2.5 py-1 text-[11px] font-semibold text-[#8B93B0] border border-[#2A2F4A]">
+                      Showing <strong className="ml-1 text-[#EDEFF7]">{startItem}–{endItem}</strong>
+                    </span>
+                    <span className="text-[11px] text-[#8B93B0]">
+                      of <strong className="text-[#EDEFF7]">{totalItems}</strong> skills
+                    </span>
+                  </div>
 
                   {totalPages > 1 && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 self-end sm:self-auto">
                       <button
                         type="button"
                         disabled={validPage === 1}
                         onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                        className="inline-flex size-7 items-center justify-center rounded-lg border border-[#2A2F4A] bg-[#171B2E] text-[#EDEFF7] hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] disabled:opacity-30"
+                        className="inline-flex h-8 items-center gap-1 rounded-xl border border-[#2A2F4A] bg-[#1F2440] px-2.5 text-xs font-semibold text-[#EDEFF7] transition-all hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] disabled:opacity-30 disabled:hover:border-[#2A2F4A] disabled:hover:text-[#EDEFF7]"
                       >
                         <ChevronLeft className="size-3.5" />
+                        <span className="hidden xs:inline">Prev</span>
                       </button>
-                      <span className="text-[11px] font-semibold text-[#8B93B0] px-1">
-                        {validPage} / {totalPages}
-                      </span>
+
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <button
+                            key={page}
+                            type="button"
+                            onClick={() => setCurrentPage(page)}
+                            className={cn(
+                              "size-8 rounded-xl text-xs font-semibold transition-all border",
+                              page === validPage
+                                ? "border-[#5EEAD4] bg-[#5EEAD4]/15 text-[#5EEAD4] font-bold shadow-[0_0_10px_rgba(94,234,212,0.2)]"
+                                : "border-[#2A2F4A] bg-[#1F2440]/50 text-[#8B93B0] hover:text-[#EDEFF7] hover:border-[#2A2F4A]/80",
+                            )}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                      </div>
+
                       <button
                         type="button"
                         disabled={validPage === totalPages}
                         onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                        className="inline-flex size-7 items-center justify-center rounded-lg border border-[#2A2F4A] bg-[#171B2E] text-[#EDEFF7] hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] disabled:opacity-30"
+                        className="inline-flex h-8 items-center gap-1 rounded-xl border border-[#2A2F4A] bg-[#1F2440] px-2.5 text-xs font-semibold text-[#EDEFF7] transition-all hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] disabled:opacity-30 disabled:hover:border-[#2A2F4A] disabled:hover:text-[#EDEFF7]"
                       >
+                        <span className="hidden xs:inline">Next</span>
                         <ChevronRight className="size-3.5" />
                       </button>
                     </div>

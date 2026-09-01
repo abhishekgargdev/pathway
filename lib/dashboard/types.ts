@@ -18,6 +18,7 @@ export type DashboardSkill = {
   completedSubtopics: number;
   totalSubtopics: number;
   isNew: boolean;
+  generationStatus?: "generating" | "ready" | "failed";
 };
 
 export type DashboardResponse = {
