@@ -6,11 +6,16 @@ import {
   AlertCircle,
   BookOpen,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Edit3,
+  Filter,
   Loader2,
   Plus,
   Search,
+  SlidersHorizontal,
   Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -46,6 +51,11 @@ type UserSkill = {
 type GetSkillsResponse = {
   skills: UserSkill[];
 };
+
+type StatusFilterType = "all" | "ready" | "generating" | "failed" | "in_progress" | "completed";
+type SortByType = "newest" | "oldest" | "alphabetical" | "progress_desc" | "progress_asc";
+
+const ITEMS_PER_PAGE = 6;
 
 async function fetchUserSkills(): Promise<GetSkillsResponse> {
   const res = await fetch("/api/skills");
@@ -88,6 +98,10 @@ const cardVariants = {
 
 export default function MySkillsPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>("all");
+  const [sortBy, setSortBy] = useState<SortByType>("newest");
+  const [currentPage, setCurrentPage] = useState(1);
+
   const [editingSkill, setEditingSkill] = useState<{ id: string; name: string; description?: string } | null>(null);
   const [deletingSkill, setDeletingSkill] = useState<{ id: string; name: string } | null>(null);
   const [, startTransition] = useTransition();
@@ -99,10 +113,75 @@ export default function MySkillsPage() {
 
   const skills = data?.skills ?? [];
 
-  // Filter skills client-side
-  const filteredSkills = skills.filter((skill) =>
-    skill.name.toLowerCase().includes(searchQuery.toLowerCase().trim()),
+  // Reset pagination when search, filter, or sort changes
+  const handleSearchChange = (query: string) => {
+    startTransition(() => {
+      setSearchQuery(query);
+      setCurrentPage(1);
+    });
+  };
+
+  const handleStatusFilterChange = (filter: StatusFilterType) => {
+    setStatusFilter(filter);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (sort: SortByType) => {
+    setSortBy(sort);
+    setCurrentPage(1);
+  };
+
+  // Filter skills
+  const filteredSkills = skills.filter((skill) => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      skill.name.toLowerCase().includes(q) ||
+      (skill.description && skill.description.toLowerCase().includes(q));
+
+    if (!matchesSearch) return false;
+
+    if (statusFilter === "ready") return skill.generationStatus === "ready";
+    if (statusFilter === "generating") return skill.generationStatus === "generating";
+    if (statusFilter === "failed") return skill.generationStatus === "failed";
+    if (statusFilter === "in_progress")
+      return skill.progress.percentComplete > 0 && skill.progress.percentComplete < 100;
+    if (statusFilter === "completed") return skill.progress.percentComplete === 100;
+
+    return true;
+  });
+
+  // Sort skills
+  const sortedSkills = [...filteredSkills].sort((a, b) => {
+    if (sortBy === "newest") {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+    if (sortBy === "oldest") {
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    }
+    if (sortBy === "alphabetical") {
+      return a.name.localeCompare(b.name);
+    }
+    if (sortBy === "progress_desc") {
+      return b.progress.percentComplete - a.progress.percentComplete;
+    }
+    if (sortBy === "progress_asc") {
+      return a.progress.percentComplete - b.progress.percentComplete;
+    }
+    return 0;
+  });
+
+  // Pagination calculation
+  const totalItems = sortedSkills.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+  const validCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const paginatedSkills = sortedSkills.slice(
+    (validCurrentPage - 1) * ITEMS_PER_PAGE,
+    validCurrentPage * ITEMS_PER_PAGE,
   );
+
+  const startItem = totalItems === 0 ? 0 : (validCurrentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endItem = Math.min(validCurrentPage * ITEMS_PER_PAGE, totalItems);
 
   const existingNames = skills.map((s) => s.name);
 
@@ -242,22 +321,79 @@ export default function MySkillsPage() {
       ) : (
         /* Active State */
         <>
-          {/* Search Bar */}
-          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-[#8B93B0]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => startTransition(() => setSearchQuery(e.target.value))}
-                placeholder="Search skills..."
-                className={cn(
-                  "h-11 w-full rounded-xl border border-[#2A2F4A] bg-[#171B2E] px-11 text-sm text-[#EDEFF7]",
-                  "placeholder:text-[#8B93B0]/50",
-                  "focus-visible:border-[#5EEAD4] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#5EEAD4]/25",
-                  "transition-all",
+          {/* Controls Bar: Search, Status Filters, & Sort */}
+          <div className="mt-6 flex flex-col gap-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              {/* Search Box */}
+              <div className="relative flex-1">
+                <Search className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-[#8B93B0]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="Search skills by title or description..."
+                  className={cn(
+                    "h-11 w-full rounded-xl border border-[#2A2F4A] bg-[#171B2E] px-11 text-sm text-[#EDEFF7]",
+                    "placeholder:text-[#8B93B0]/50",
+                    "focus-visible:border-[#5EEAD4] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#5EEAD4]/25",
+                    "transition-all",
+                  )}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => handleSearchChange("")}
+                    className="absolute top-1/2 right-3 -translate-y-1/2 p-1 text-[#8B93B0] hover:text-[#EDEFF7]"
+                  >
+                    <X className="size-4" />
+                  </button>
                 )}
-              />
+              </div>
+
+              {/* Sort Selector */}
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="size-4 text-[#8B93B0] shrink-0" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => handleSortChange(e.target.value as SortByType)}
+                  className="h-11 rounded-xl border border-[#2A2F4A] bg-[#171B2E] px-3.5 text-xs font-semibold text-[#EDEFF7] focus-visible:border-[#5EEAD4] focus-visible:outline-none"
+                >
+                  <option value="newest">Sort by: Newest First</option>
+                  <option value="oldest">Sort by: Oldest First</option>
+                  <option value="alphabetical">Sort by: Name (A–Z)</option>
+                  <option value="progress_desc">Sort by: Progress (High to Low)</option>
+                  <option value="progress_asc">Sort by: Progress (Low to High)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {[
+                { id: "all", label: "All Skills" },
+                { id: "ready", label: "Ready" },
+                { id: "in_progress", label: "In Progress" },
+                { id: "completed", label: "Completed" },
+                { id: "generating", label: "Generating" },
+                { id: "failed", label: "Failed" },
+              ].map((tab) => {
+                const isActive = statusFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => handleStatusFilterChange(tab.id as StatusFilterType)}
+                    className={cn(
+                      "rounded-xl px-3 py-1.5 text-xs font-semibold transition-all border",
+                      isActive
+                        ? "border-[#5EEAD4]/50 bg-[#5EEAD4]/15 text-[#5EEAD4] shadow-[0_0_12px_rgba(94,234,212,0.15)]"
+                        : "border-[#2A2F4A] bg-[#1F2440]/50 text-[#8B93B0] hover:border-[#2A2F4A]/80 hover:text-[#EDEFF7]",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -266,10 +402,10 @@ export default function MySkillsPage() {
             variants={containerVariants}
             initial="hidden"
             animate="show"
-            className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+            className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
           >
             <AnimatePresence mode="popLayout">
-              {filteredSkills.map((skill) => {
+              {paginatedSkills.map((skill) => {
                 const isGenerating = skill.generationStatus === "generating";
                 const isFailed = skill.generationStatus === "failed";
                 const isReady = skill.generationStatus === "ready";
@@ -410,8 +546,8 @@ export default function MySkillsPage() {
                           href={`/skills/${skill.id}`}
                           className={cn(
                             "flex-1 inline-flex h-10 items-center justify-center rounded-xl",
-                            "border border-[#2A2F4A] bg-[#1F2440]/30 text-xs font-semibold text-[#EDEFF7]",
-                            "transition-all hover:bg-white/[0.04] hover:text-[#5EEAD4]",
+                            "border border-[#5EEAD4]/40 bg-[#5EEAD4]/10 text-xs font-semibold text-[#5EEAD4]",
+                            "transition-all hover:bg-[#5EEAD4]/20 hover:border-[#5EEAD4]",
                             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5EEAD4]/40",
                           )}
                         >
@@ -425,17 +561,17 @@ export default function MySkillsPage() {
                                 : `/skills/${skill.id}`
                             }
                             className={cn(
-                              "flex-1 inline-flex h-10 items-center justify-center rounded-xl",
-                              "bg-[#5EEAD4] text-xs font-semibold text-[#0E1220]",
-                              "shadow-[0_0_12px_rgba(94,234,212,0.15)]",
-                              "transition-all hover:bg-[#5EEAD4]/90 hover:shadow-[0_0_20px_rgba(94,234,212,0.25)]",
-                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5EEAD4]/40",
+                              "flex-1 inline-flex h-10 items-center justify-center rounded-xl text-xs font-semibold transition-all",
+                              skill.progress.percentComplete > 0
+                                ? "border border-[#8B7CF6]/40 bg-[#8B7CF6]/15 text-[#8B7CF6] hover:bg-[#8B7CF6]/25"
+                                : "border border-[#2A2F4A] bg-[#1F2440] text-[#EDEFF7] hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4]",
                             )}
                           >
-                            Continue Learning
+                            {skill.progress.percentComplete > 0 ? "Continue" : "Start Learning"}
                           </Link>
                         ) : (
                           <button
+                            type="button"
                             disabled
                             className={cn(
                               "flex-1 inline-flex h-10 items-center justify-center rounded-xl text-xs font-semibold",
@@ -452,9 +588,74 @@ export default function MySkillsPage() {
               })}
             </AnimatePresence>
           </motion.div>
-          {filteredSkills.length === 0 && searchQuery && (
-            <div className="mt-12 text-center text-[#8B93B0]">
-              <p className="text-sm">No skills matched your search query.</p>
+
+          {/* Empty Search / Filter Result State */}
+          {totalItems === 0 && (
+            <div className="mt-12 text-center text-[#8B93B0] py-8 border border-dashed border-[#2A2F4A] rounded-2xl">
+              <p className="text-sm font-semibold text-[#EDEFF7]">No matching skills found.</p>
+              <p className="mt-1 text-xs text-[#8B93B0]">Try adjusting your search query or filter selection.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                }}
+                className="mt-4 inline-flex h-9 items-center justify-center rounded-xl border border-[#2A2F4A] bg-[#1F2440] px-4 text-xs font-semibold text-[#5EEAD4] hover:bg-[#1F2440]/80"
+              >
+                Clear Filters
+              </button>
+            </div>
+          )}
+
+          {/* Pagination Controls Footer */}
+          {totalItems > 0 && (
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-[#2A2F4A] pt-6">
+              <p className="text-xs font-medium text-[#8B93B0]">
+                Showing <span className="text-[#EDEFF7] font-semibold">{startItem}–{endItem}</span> of{" "}
+                <span className="text-[#EDEFF7] font-semibold">{totalItems}</span> skills
+              </p>
+
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={validCurrentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                    className="inline-flex h-9 items-center gap-1 rounded-xl border border-[#2A2F4A] bg-[#171B2E] px-3 text-xs font-semibold text-[#EDEFF7] hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] disabled:opacity-40 disabled:hover:border-[#2A2F4A] disabled:hover:text-[#EDEFF7]"
+                  >
+                    <ChevronLeft className="size-4" />
+                    <span>Prev</span>
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        type="button"
+                        onClick={() => setCurrentPage(page)}
+                        className={cn(
+                          "size-9 rounded-xl text-xs font-semibold transition-all border",
+                          page === validCurrentPage
+                            ? "border-[#5EEAD4] bg-[#5EEAD4]/15 text-[#5EEAD4] font-bold shadow-[0_0_12px_rgba(94,234,212,0.2)]"
+                            : "border-[#2A2F4A] bg-[#171B2E] text-[#8B93B0] hover:text-[#EDEFF7] hover:border-[#2A2F4A]/80",
+                        )}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={validCurrentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                    className="inline-flex h-9 items-center gap-1 rounded-xl border border-[#2A2F4A] bg-[#171B2E] px-3 text-xs font-semibold text-[#EDEFF7] hover:border-[#5EEAD4]/40 hover:text-[#5EEAD4] disabled:opacity-40 disabled:hover:border-[#2A2F4A] disabled:hover:text-[#EDEFF7]"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>
