@@ -22,7 +22,7 @@ export const maxDuration = 60;
 export type { CreateSkillResponse } from "@/lib/skills/types";
 
 const createSkillSchema = z.object({
-  name: z.string().trim().min(1, "Skill name is required").max(120),
+  name: z.string().trim().min(1, "Skill name is required").max(10000),
 });
 
 export async function GET() {
@@ -150,8 +150,23 @@ export async function POST(request: Request) {
   const nameInput = parsed.data.name;
   await withDb();
 
-  // Split by comma
-  const rawNames = nameInput.split(",").map((n) => n.trim()).filter((n) => n.length > 0);
+  // Split by comma or newline (handles pasted bullet/multiline lists)
+  const parsedNames = nameInput
+    .split(/[\r\n,]+/)
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
+
+  // Deduplicate case-insensitively while preserving original formatting
+  const rawNames: string[] = [];
+  const seen = new Set<string>();
+  for (const name of parsedNames) {
+    const key = name.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      rawNames.push(name.slice(0, 120));
+    }
+  }
+
   if (rawNames.length === 0) {
     return NextResponse.json({ error: "At least one skill name is required" }, { status: 400 });
   }

@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { getSkillSuggestions } from "@/lib/skills/suggestions";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,15 @@ export function AddSkillDialog({
       }),
     [name, existingSkillNames],
   );
+
+  const detectedSkillCount = useMemo(() => {
+    if (!name.trim()) return 0;
+    const names = name
+      .split(/[\r\n,]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    return new Set(names.map((s) => s.toLowerCase())).size;
+  }, [name]);
 
   const mutation = useMutation({
     mutationFn: createSkill,
@@ -157,27 +167,34 @@ export function AddSkillDialog({
                 Add skills
               </DialogTitle>
               <DialogDescription className="text-sm text-[#8B93B0]">
-                Enter one or more skills (comma-separated). Pathway will analyze their learning dependencies, order them logically, and generate your learning paths in the background.
+                Enter or paste one or more skills (comma or line-break separated). Pathway will analyze their learning dependencies, order them logically, and generate your learning paths in the background.
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex flex-col gap-4 px-5 pb-2 md:px-6">
               <div className="flex flex-col gap-2">
-                <Label
-                  htmlFor="skill-name"
-                  className="text-xs font-medium tracking-[0.5px] text-[#8B93B0] uppercase"
-                >
-                  Skill name(s)
-                </Label>
-                <Input
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="skill-name"
+                    className="text-xs font-medium tracking-[0.5px] text-[#8B93B0] uppercase"
+                  >
+                    Skill name(s)
+                  </Label>
+                  {detectedSkillCount > 0 ? (
+                    <span className="rounded-full bg-[#5EEAD4]/10 px-2 py-0.5 text-[11px] font-semibold text-[#5EEAD4]">
+                      {detectedSkillCount} {detectedSkillCount === 1 ? "skill" : "skills"} detected
+                    </span>
+                  ) : null}
+                </div>
+                <Textarea
                   id="skill-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. HTML, CSS, JavaScript, React"
-                  autoComplete="off"
-                  maxLength={120}
+                  placeholder="e.g. HTML, CSS, JavaScript, React (or paste list with newlines/commas)"
+                  rows={4}
+                  maxLength={10000}
                   className={cn(
-                    "h-11 min-h-11 rounded-xl border-[#2A2F4A] bg-[#1F2440] px-4 text-[15px] text-[#EDEFF7]",
+                    "min-h-24 max-h-48 rounded-xl border-[#2A2F4A] bg-[#1F2440] p-3 text-[14px] leading-relaxed text-[#EDEFF7] resize-y",
                     "placeholder:text-[#8B93B0]/70",
                     "focus-visible:border-[#5EEAD4] focus-visible:ring-[3px] focus-visible:ring-[#5EEAD4]/25",
                     error &&
@@ -242,7 +259,9 @@ export function AddSkillDialog({
                   "disabled:cursor-not-allowed disabled:bg-[#2A2F4A] disabled:text-[#8B93B0] disabled:shadow-none",
                 )}
               >
-                Generate path
+                {detectedSkillCount > 1
+                  ? `Generate ${detectedSkillCount} learning paths`
+                  : "Generate path"}
               </button>
             </DialogFooter>
           </form>
